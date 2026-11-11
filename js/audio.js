@@ -96,6 +96,14 @@
         k.bell(mtof(96), 0.95, 0.05, 2.0);
       },
     },
+    // ほねで助かった：明るく上がる2音
+    saved: {
+      len: 2.4, fn: k => {
+        k.bell(mtof(79), 0, 0.12, 1.0);
+        k.bell(mtof(86), 0.12, 0.12, 1.4);
+        k.bell(mtof(91), 0.24, 0.06, 1.6);
+      },
+    },
     // ゲームオーバー：ゆっくり下がっていくベル
     gameover: {
       len: 6.0, fn: k => {
@@ -305,6 +313,7 @@
     bark() { play('bark'); },
     clear() { play('clear'); },
     gameover() { play('gameover'); },
+    saved() { play('saved'); },
     music(m) { mode = m; if (ctx) applyMusicGain(); },
     setMuted(m) {
       muted = m;

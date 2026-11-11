@@ -21,7 +21,7 @@
       <div class="stats">
         <span title="タイム">⏱ <b id="hudTime">0:00.0</b></span>
         <span title="ワープした回数">🌀 <b id="hudWarp">0</b></span>
-        <span title="ほね">🦴 <b id="hudBone">0/0</b></span>
+        <span id="hudBoneWrap" class="bone-count" title="持っているほね（1本でゴン1回セーフ）">🦴 <b id="hudBone">0</b></span>
       </div>
       <div class="buttons">
         <button id="btnMap" class="hud-btn" aria-label="地図">🗺</button>
@@ -58,13 +58,15 @@
       <h2>遊び方</h2>
       <ul>
         <li><b>あなたは犬。</b>迷路の中を自動で前へ走りつづけます。</li>
-        <li><b>フリック ← →</b> で次のマスで曲がる。<b>↓</b> でUターン。<b>タップ</b>でおすわり（止まる／走る）。</li>
-        <li>PC は <kbd>←</kbd><kbd>→</kbd><kbd>↓</kbd>、<kbd>Space</kbd> でおすわり、<kbd>K</kbd> でくんくん、<kbd>M</kbd> で地図。</li>
+        <li>操作は<b>左右だけ</b>。<b>フリック ← →</b> で次のマスで曲がります（PC は <kbd>←</kbd><kbd>→</kbd>）。</li>
+        <li>行き止まりでは、角に着く前に<b>同じ向きへ2回</b>フリックすると後ろを向けます。</li>
+        <li>PC は <kbd>K</kbd> でくんくん、<kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
         <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れて鏡に当たると「ゴン！」で<b>即ゲームオーバー</b>。</li>
         <li>鏡には<b>自分の姿</b>も映ります。向こうから犬が来たら…それは自分です。</li>
         <li><b>本物の出口は一つだけ。</b>ほかの「EXIT」はワープゾーン。どこかへ飛ばされます。</li>
         <li>迷ったら <b>👃 くんくん</b> で本物の出口の方向をかぎ分けよう（1ステージ3回）。</li>
-        <li>ワープが少ないほど ★ が増えます。ほねも集めてね。</li>
+        <li><b>🦴 ほね</b>を持っていれば、鏡に当たっても<b>1回だけセーフ</b>（ほねを1本使います）。行き止まりに落ちているので、取りに行くかは作戦しだい。</li>
+        <li>ワープとセーフになったゴンが少ないほど ★ が増えます。</li>
       </ul>
       <button id="btnHowtoBack" class="btn">もどる</button>
     </div>

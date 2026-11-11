@@ -63,7 +63,7 @@
       mode: 'wait', t: 0, running: false, queued: null, walk: 0, from: null, to: null,
     };
     bones = level.bones.map(b => ({ x: b.x + 0.5, y: b.y + 0.5, cx: b.x, cy: b.y, taken: false }));
-    stats = { time: 0, bumps: 0, warps: 0, bones: 0, sniffs: 3 };
+    stats = { time: 0, bumps: 0, warps: 0, bones: 0, got: 0, sniffs: 3 }; // bones = 手持ち（お守り）, got = 拾った数
     visited = new Set([s.x + ',' + s.y]);
     enteredWarps = new Set();
     sniffTimer = 0;
@@ -75,24 +75,22 @@
     Sound.music('play');
     readyTimer = 1.6;
     popup('よーい…', 'ready');
-    hint(isTouch ? '← → フリックで曲がる　↓でUターン　タップでおすわり' : '← → で曲がる　↓ でUターン　スペースでおすわり');
+    hint(isTouch ? '← → フリックで次の角を曲がる' : '← → キーで次の角を曲がる');
     updateHud(true);
   }
 
   // ---------- 入力 ----------
+  // 操作は左右だけ。曲がり角に着くまでに同じ向きへ2回フリックすると、向きが2回変わって後ろを向く
   function turn(d) {
-    if (p && p.dead) return;
-    if (state !== 'play') { if (state === 'ready') p.queued = d; return; }
-    p.queued = d;
-    p.running = true;
+    if (!p || p.dead) return;
+    if (state !== 'play' && state !== 'ready') return;
+    let q = (p.queued || 0) + d;
+    if (q > 2) q = 2;
+    if (q < -2) q = 2;
+    if (q === -2) q = 2;
+    p.queued = q === 0 ? null : q;
     Sound.turn();
-    showTurnIndicator(d);
-  }
-  function go() { if (state === 'play') { p.running = true; } }
-  function toggleSit() {
-    if (state !== 'play') return;
-    p.running = !p.running;
-    popup(p.running ? 'タッ！' : 'おすわり', 'small');
+    if (p.queued !== null) showTurnIndicator(p.queued);
   }
   function sniff() {
     if (state !== 'play' || stats.sniffs <= 0 || sniffTimer > 0) return;
@@ -106,9 +104,7 @@
   const KEYMAP = {
     ArrowLeft: () => turn(-1), a: () => turn(-1), A: () => turn(-1),
     ArrowRight: () => turn(1), d: () => turn(1), D: () => turn(1),
-    ArrowDown: () => turn(2), s: () => turn(2), S: () => turn(2),
-    ArrowUp: go, w: go, W: go,
-    ' ': toggleSit, k: sniff, K: sniff, m: toggleMap, M: toggleMap,
+    k: sniff, K: sniff, m: toggleMap, M: toggleMap,
   };
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { togglePause(); e.preventDefault(); return; }
@@ -132,13 +128,12 @@
     const th = Math.max(28, Math.min(view.clientWidth, view.clientHeight) * 0.06);
     if (Math.hypot(dx, dy) < th) return;
     ptr.fired = true;
-    if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 1 : -1);
-    else if (dy > 0) turn(2);
-    else go();
+    // 横方向のフリックだけ受け付ける
+    if (Math.abs(dx) > Math.abs(dy) * 0.8) turn(dx > 0 ? 1 : -1);
+    else ptr.fired = false;
   });
   function endPtr(e) {
     if (!ptr || ptr.id !== e.pointerId) return;
-    if (!ptr.fired && performance.now() - ptr.t < 350 && e.type === 'pointerup') toggleSit();
     ptr = null;
   }
   view.addEventListener('pointerup', endPtr);
@@ -168,6 +163,11 @@
     const [dx, dy] = DIRS[p.dir];
     const nx = p.cx + dx, ny = p.cy + dy;
     const c = cellAt(nx, ny);
+    // ゴンのあとは、道が開いている方を向くまでその場で待つ
+    if (p.halted) {
+      if (c === 1) { p.mode = 'wait'; return; }
+      p.halted = false;
+    }
     p.t = 0;
     p.from = { x: p.cx + 0.5, y: p.cy + 0.5 };
     if (c === 0) { p.mode = 'move'; p.to = { x: nx + 0.5, y: ny + 0.5, cx: nx, cy: ny }; }
@@ -183,7 +183,7 @@
     Sound.step();
     for (const b of bones) {
       if (!b.taken && b.cx === p.cx && b.cy === p.cy) {
-        b.taken = true; stats.bones++; Sound.bone(); popup('ほねゲット！', 'small'); updateHud(true);
+        b.taken = true; stats.bones++; stats.got++; Sound.bone(); popup('ほねゲット！ ゴン1回セーフ', 'small'); bumpHudBone(); updateHud(true);
       }
     }
   }
@@ -191,13 +191,31 @@
   function doBump() {
     stats.bumps++;
     Sound.bump();
-    Sound.whine();
     popup('ゴン！', 'bump');
     view.classList.remove('shake'); void view.offsetWidth; view.classList.add('shake');
     if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) { /* noop */ } }
     flash('rgba(200,220,255,0.5)', 0.18);
-    p.dead = true;
     p.queued = null;
+    if (stats.bones > 0) {
+      // ほねがお守りになって 1 回だけ助かる（ほねは 1 本なくなる）
+      stats.bones--;
+      bumpHudBone();
+      updateHud(true);
+      setTimeout(() => {
+        if (state !== 'play') return;
+        Sound.saved();
+        popup('ほねでセーフ！', 'save');
+        flash('rgba(255,236,190,0.6)', 0.35);
+      }, 380);
+      return;
+    }
+    Sound.whine();
+    p.dead = true;
+  }
+
+  function bumpHudBone() {
+    const el = $('hudBoneWrap');
+    el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
   }
 
   // 1回でも鏡に当たったらゲームオーバー
@@ -212,7 +230,7 @@
       const reached = level.pathLen - Math.max(0, level.exitDist[p.cy][p.cx]);
       const pct = Math.max(0, Math.min(99, Math.round(reached / level.pathLen * 100)));
       $('overKicker').textContent = '💥 ゴン！ ' + (cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1));
-      $('overStats').innerHTML = row('タイム', fmtTime(stats.time)) + row('出口までの道のり', pct + '%') + row('ワープ', stats.warps + ' 回') + row('ほね', stats.bones + ' / ' + bones.length);
+      $('overStats').innerHTML = row('タイム', fmtTime(stats.time)) + row('出口までの道のり', pct + '%') + row('ワープ', stats.warps + ' 回') + row('ほねでセーフ', stats.bumps - 1 + ' 回') + row('拾ったほね', stats.got + ' / ' + bones.length);
       $('hud').hidden = true;
       showOverlay('over');
     }, 1400);
@@ -286,7 +304,7 @@
         if (before < hitAt && p.t >= hitAt) doBump();
         if (p.t < 1) return;
         p.x = p.from.x; p.y = p.from.y;
-        p.mode = 'stun'; p.t = 0; p.running = false;
+        p.mode = 'stun'; p.t = 0; p.halted = true;
         if (p.dead) gameOver();
         return;
       }
@@ -294,6 +312,7 @@
         p.t += dt;
         if (p.t < STUN) return;
         p.mode = 'wait';
+        if (p.queued === null) hint(isTouch ? '← → フリックで向きを変えよう' : '← → で向きを変えよう', 2.4);
         continue;
       }
       if (p.mode === 'exit' || p.mode === 'warpIn') {
@@ -330,12 +349,14 @@
     Sound.clear();
     popup('ワン！', 'bark');
     flash('rgba(255,240,200,1)', 0.8);
-    const stars = stats.warps === 0 ? 3 : stats.warps <= 2 ? 2 : 1;
+    // ワープとゴン（ほねで助かった回数）が少ないほど ★ が多い
+    const miss = stats.warps + stats.bumps;
+    const stars = miss === 0 ? 3 : miss <= 2 ? 2 : 1;
     let best = false;
     if (!cfg.random) {
       const prev = save.stages[stageIdx];
       if (!prev || stars > prev.stars || (stars === prev.stars && stats.time < prev.time)) {
-        save.stages[stageIdx] = { stars, time: Math.round(stats.time * 10) / 10, warps: stats.warps };
+        save.stages[stageIdx] = { stars, time: Math.round(stats.time * 10) / 10, warps: stats.warps, bumps: stats.bumps };
         best = !!prev;
       }
       writeSave();
@@ -346,7 +367,7 @@
       $('clearTitle').textContent = cfg.random ? '脱出成功！' : 'STAGE ' + (stageIdx + 1) + ' 脱出成功！';
       $('clearStats').innerHTML =
         row('タイム', fmtTime(stats.time)) + row('ワープ', stats.warps + ' 回') +
-        row('ほね', stats.bones + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
+        row('ほねでセーフ', stats.bumps + ' 回') + row('拾ったほね', stats.got + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
       $('btnNext').hidden = !(cfg.random || stageIdx + 1 < STAGES.length);
       $('btnNext').textContent = cfg.random ? 'もう一つ' : '次のステージへ';
       $('hud').hidden = true;
@@ -378,7 +399,7 @@
   let turnIndTimer = null;
   function showTurnIndicator(d) {
     const el = $('turnInd');
-    el.textContent = d === -1 ? '↰' : d === 1 ? '↱' : '⤸';
+    el.textContent = d === -1 ? '↰' : d === 1 ? '↱' : '↶↶';
     el.className = 'turn-ind show';
     clearTimeout(turnIndTimer);
     turnIndTimer = setTimeout(() => { el.className = 'turn-ind'; }, 450);
@@ -392,7 +413,7 @@
     if (ts !== lastTimeStr || force) { $('hudTime').textContent = ts; lastTimeStr = ts; }
     if (force) {
       $('hudWarp').textContent = stats.warps;
-      $('hudBone').textContent = stats.bones + '/' + bones.length;
+      $('hudBone').textContent = stats.bones;
       $('btnSniff').querySelector('b').textContent = stats.sniffs;
       $('btnSniff').disabled = stats.sniffs <= 0;
     }
@@ -593,6 +614,6 @@
   // テスト・デバッグ用
   window.__game = {
     get state() { return state; }, get player() { return p; }, get level() { return level; }, get stats() { return stats; },
-    startStage, turn, go, toggleSit, sniff, STAGES,
+    startStage, turn, sniff, STAGES,
   };
 })();
