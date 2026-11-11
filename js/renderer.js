@@ -43,7 +43,8 @@
     this.W = w; this.H = h;
     this.PLANE = Math.max(0.58, Math.min(1.0, (w / 2) / (h * 0.85)));
     this.S = (w / 2) / this.PLANE;
-    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
   };
 
   Renderer.prototype.setLevel = function (level, cfg) {
@@ -151,24 +152,29 @@
             const left = W / 2 * (1 + tx / ty) - sw / 2;
             const cx = x + 0.5;
             if (cx < left || cx >= left + sw) continue;
-            let img = s.img;
+            let u = (cx - left) / sw;
+            let img = s.img, sx = 0, sy = 0, fw = 0, fh = 0;
             if (s.kind === 'dog') {
+              const D = Sprites.DOG;
+              img = D.sheet;
+              if (!img.complete || !img.naturalWidth) continue;
+              // 鏡像空間での犬の向き → カメラから見た角度 ψ（0=正面, +90=鼻が画面右）
               const fx = kax * s.fx, fy = kay * s.fy;
               const len = Math.hypot(rx, ry) || 1;
-              const dot = -(fx * rx + fy * ry) / len;
-              const set = Sprites.dog;
-              if (dot > 0.62) img = set.front[s.frame];
-              else if (dot < -0.62) img = set.back[s.frame];
-              else img = (fx * plX + fy * plY) > 0 ? set.right[s.frame] : set.left[s.frame];
-            }
-            hits.push({ ty, u: (cx - left) / sw, img, s });
+              const vx = rx / len, vy = ry / len;
+              const psi = Math.atan2(fx * -vy + fy * vx, -(fx * vx + fy * vy)) * 180 / Math.PI;
+              const col = Math.min(D.cols - 1, Math.round(Math.abs(psi) / D.step));
+              if (psi < 0) u = 1 - u;
+              sx = col * D.fw; sy = s.frame * D.fh; fw = D.fw; fh = D.fh;
+            } else { fw = img.width; fh = img.height; }
+            hits.push({ ty, u, img, s, sx, sy, fw, fh });
           }
           if (hits.length > 1) hits.sort((a, b) => b.ty - a.ty);
           for (let i = 0; i < hits.length; i++) {
             const h = hits[i], s = h.s, img = h.img;
             const top = hz + (CAMZ - (s.z + s.h)) * S / h.ty, bot = hz + (CAMZ - s.z) * S / h.ty;
             ctx.globalAlpha = Math.max(0, 1 - Math.pow(h.ty / fogD, 1.3));
-            ctx.drawImage(img, Math.min(img.width - 1, (h.u * img.width) | 0), 0, 1, img.height, x, top, 1, bot - top);
+            ctx.drawImage(img, h.sx + Math.min(h.fw - 1, (h.u * h.fw) | 0), h.sy, 1, h.fh, x, top, 1, bot - top);
           }
           ctx.globalAlpha = 1;
         }

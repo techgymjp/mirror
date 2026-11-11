@@ -40,8 +40,9 @@
   // ---------- 画面サイズ ----------
   function resize() {
     const w = view.clientWidth || window.innerWidth, h = view.clientHeight || window.innerHeight;
-    const H = 240;
-    const W = Math.max(180, Math.min(560, Math.round(H * w / h)));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const H = Math.max(240, Math.min(400, Math.round(h * dpr / 2)));
+    const W = Math.max(180, Math.min(720, Math.round(H * w / h)));
     renderer.resize(W, H);
   }
   window.addEventListener('resize', resize);
@@ -70,6 +71,7 @@
     $('stageName').textContent = (cfg.random ? '' : 'STAGE ' + (i + 1) + '　') + cfg.name;
     $('compass').hidden = !cfg.compass;
     state = 'ready';
+    Sound.music('play');
     readyTimer = 1.6;
     popup('よーい…', 'ready');
     hint(isTouch ? '← → フリックで曲がる　↓でUターン　タップでおすわり' : '← → で曲がる　↓ でUターン　スペースでおすわり');
@@ -215,6 +217,11 @@
     updateHud(true);
   }
 
+  function dogSprite(x, y, ang, frame) {
+    const D = Sprites.DOG;
+    return { kind: 'dog', x, y, z: D.z, w: D.w, h: D.h, fx: Math.cos(ang), fy: Math.sin(ang), frame };
+  }
+
   function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
   function updatePlayer(dt) {
@@ -297,6 +304,7 @@
   // ---------- クリア ----------
   function clearStage() {
     state = 'clear';
+    Sound.music('calm');
     Sound.clear();
     popup('ワン！', 'bark');
     flash('rgba(255,240,200,1)', 0.8);
@@ -422,8 +430,8 @@
     for (const o of ['title', 'howto', 'pause', 'clear']) $(o).hidden = o !== id;
   }
   function togglePause() {
-    if (state === 'play' || state === 'ready') { state = 'paused'; showOverlay('pause'); }
-    else if (state === 'paused') { state = readyTimer > 0 ? 'ready' : 'play'; showOverlay(null); }
+    if (state === 'play' || state === 'ready') { state = 'paused'; showOverlay('pause'); Sound.music('calm'); }
+    else if (state === 'paused') { state = readyTimer > 0 ? 'ready' : 'play'; showOverlay(null); Sound.music('play'); }
   }
   function firstUncleared() {
     for (let i = 0; i < STAGES.length; i++) if (!save.stages[i]) return i;
@@ -432,6 +440,7 @@
   function toTitle() {
     clearTimeout(clearTimer);
     state = 'title';
+    Sound.music('title');
     $('hud').hidden = true;
     buildStageList();
     showOverlay('title');
@@ -471,7 +480,19 @@
   function syncSound() {
     const m = Sound.isMuted();
     document.querySelectorAll('.btn-sound').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', m ? '音を出す' : '音を消す'); });
+    const on = Sound.isMusicOn();
+    document.querySelectorAll('.btn-music').forEach(b => { b.classList.toggle('off', !on); b.setAttribute('aria-label', on ? 'BGMを止める' : 'BGMを流す'); });
   }
+  document.querySelectorAll('.btn-music').forEach(b => b.addEventListener('click', () => {
+    Sound.setMusicOn(!Sound.isMusicOn());
+    try { localStorage.setItem(SAVE_KEY + '-bgm', Sound.isMusicOn() ? '1' : '0'); } catch (e) { /* noop */ }
+    syncSound();
+  }));
+  try { if (localStorage.getItem(SAVE_KEY + '-bgm') === '0') Sound.setMusicOn(false); } catch (e) { /* noop */ }
+  // ブラウザの自動再生制限：最初の操作で音を有効にする
+  const unlockOnce = () => { Sound.unlock(); window.removeEventListener('pointerdown', unlockOnce); window.removeEventListener('keydown', unlockOnce); };
+  window.addEventListener('pointerdown', unlockOnce);
+  window.addEventListener('keydown', unlockOnce);
   document.querySelectorAll('.btn-sound').forEach(b => b.addEventListener('click', () => {
     Sound.setMuted(!Sound.isMuted());
     try { localStorage.setItem(SAVE_KEY + '-mute', Sound.isMuted() ? '1' : '0'); } catch (e) { /* noop */ }
@@ -506,7 +527,7 @@
       demo.ang += dt * 0.22;
       renderer.render({
         px: demo.x, py: demo.y, ang: demo.ang, bob: 0,
-        sprites: [{ kind: 'dog', x: demo.x, y: demo.y, z: 0, w: 0.5, h: 0.42, fx: Math.cos(demo.ang), fy: Math.sin(demo.ang), frame: (clock * 2 | 0) % 2 }],
+        sprites: [dogSprite(demo.x, demo.y, demo.ang, 0)],
       });
     } else if (level && p) {
       if (state === 'ready') {
@@ -521,9 +542,9 @@
         updatePlayer(0);
       }
       const moving = p.mode === 'move' || p.mode === 'bump' || p.mode === 'exit' || p.mode === 'warpIn';
-      const fr = moving ? ((p.walk * 4) | 0) % 2 : 0;
+      const fr = moving ? 1 + (((p.walk * 6.5) | 0) % 4) : 0;
       const bob = moving ? Math.sin(p.walk * Math.PI * 4) * 2.2 : 0;
-      const sprites = [{ kind: 'dog', x: p.x, y: p.y, z: 0, w: 0.5, h: 0.42, fx: Math.cos(p.ang), fy: Math.sin(p.ang), frame: fr }];
+      const sprites = [dogSprite(p.x, p.y, p.ang, fr)];
       for (const b of bones) if (!b.taken) sprites.push({ img: Sprites.bone, x: b.x, y: b.y, z: 0.03 + 0.03 * Math.sin(clock * 3 + b.x), w: 0.3, h: 0.13 });
       renderer.render({ px: p.x, py: p.y, ang: p.ang, bob, sprites });
       if (state !== 'paused') { updateHud(false); drawMinimap(); }
