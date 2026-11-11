@@ -51,7 +51,7 @@
   - リワード広告（チート）: 鏡にぶつかってゲームオーバーになったら「広告を見て、つづきから」（1 ステージ 3 回まで。ぶつかった様子を見届けられるよう 2.2 秒後に出し、6 秒で自動的に結果画面へ）。
     見終わると、ぶつかった場所で止まった状態から再開。使ったことは結果画面とシェア文に「やり直し N 回」と出る
   - EU など同意が必要な地域ではタイトル画面に「広告の設定」
-  - 本番の広告ユニット ID は `js/ads.js`、AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml`（届くまではテスト用）
+  - 本番の広告ユニット ID は `js/ads.js`（空の種類は本番ビルドで出さない）、AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml`
 - タイトル画面にバージョン（ビルド番号）とプライバシーポリシーへのリンク
 - 日本語・英語に対応（端末の言語で自動選択、タイトル画面で切り替え。文言は `js/i18n.js`）
 - アイコンと起動画面: `python3 tools/render_icon.py` で `appicon/` に元画像を作り、`npx @capacitor/assets generate --android --assetPath appicon` で生成
