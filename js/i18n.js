@@ -140,7 +140,7 @@ window.I18N = (() => {
       'share.where': 'STAGE {n} "{name}"',
       'share.clear': '🐕 Escaped {where}! {stars} Time {time}{extra}\n#MirrorMazeDog',
       'share.over': '💥 BONK into a mirror in {where}! {pct}% left to the exit{extra}\n#MirrorMazeDog',
-      'share.warps': '{n} warps', 'share.redo': '{n} continues', 'share.sep': ', ', 'share.extra': ' ({x})',
+      'share.warps': 'warps: {n}', 'share.redo': 'continues: {n}', 'share.sep': ', ', 'share.extra': ' ({x})',
       'stage.1.name': 'First Mirrors', 'stage.1.desc': 'Get used to the mirror maze',
       'stage.2.name': 'Long Hallways', 'stage.2.desc': 'Sharp turns at the end of long hallways. Don\'t turn late',
       'stage.3.name': 'Spiral Corridor', 'stage.3.desc': 'Round and round to the right, from the center out. Side doors are warps',

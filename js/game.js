@@ -717,6 +717,8 @@
   }
 
   // ---------- シェア ----------
+  // シェアに付けるリンク（ゲームの紹介記事）
+  const SHARE_URL = 'https://techgym.jp/column/claude-code-game-mirror/';
   let lastResult = null;
   async function shareResult() {
     if (!lastResult) return;
@@ -729,11 +731,11 @@
     const title = t('share.title');
     const nativeShare = plugin('Share');
     if (nativeShare) {
-      try { await nativeShare.share({ title, text, dialogTitle: t('share.dialog') }); } catch (e) { /* キャンセル */ }
+      try { await nativeShare.share({ title, text, url: SHARE_URL, dialogTitle: t('share.dialog') }); } catch (e) { /* キャンセル */ }
     } else if (navigator.share) {
-      try { await navigator.share({ title, text, url: location.href }); } catch (e) { /* キャンセル */ }
+      try { await navigator.share({ title, text, url: SHARE_URL }); } catch (e) { /* キャンセル */ }
     } else {
-      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(location.href), '_blank');
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(SHARE_URL), '_blank');
     }
   }
   $('btnShareClear').addEventListener('click', shareResult);
