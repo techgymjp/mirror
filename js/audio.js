@@ -1,12 +1,18 @@
-/* WebAudio の効果音と BGM（音声ファイル不要） */
+/* WebAudio の効果音と BGM（音声ファイル不要）
+ *
+ * 効果音はページ読み込み時に OfflineAudioContext で「音声データ」として事前生成しておき、
+ * 再生時はそのバッファを流すだけにする（その場で大量のオシレーターを鳴らすと、
+ * 端末によっては音が途切れるため）。
+ */
 (function () {
   'use strict';
   let ctx = null, master = null, sfxBus = null, musicBus = null, reverbIn = null, delayIn = null;
   let muted = false, musicOn = true;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
-  function makeImpulse(sec, decay) {
-    const len = Math.floor(ctx.sampleRate * sec);
-    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  function makeImpulse(ac, sec, decay) {
+    const len = Math.floor(ac.sampleRate * sec);
+    const buf = ac.createBuffer(2, len, ac.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
@@ -14,11 +20,127 @@
     return buf;
   }
 
+  // ---------- 効果音の部品（任意の AudioContext 上で組み立てる） ----------
+  function makeKit(ac, out, rev, t0) {
+    function tone(freq, dur, type, vol, freqEnd, delay, opts) {
+      opts = opts || {};
+      const t = t0 + (delay || 0);
+      const o = ac.createOscillator(), gn = ac.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t);
+      if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(vol, t + (opts.attack || 0.008));
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      let node = o;
+      if (opts.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
+      node.connect(gn); gn.connect(out);
+      if (opts.rev && rev) { const sg = ac.createGain(); sg.gain.value = opts.rev; gn.connect(sg); sg.connect(rev); }
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+    function noise(dur, vol, freq, delay, type) {
+      const t = t0 + (delay || 0);
+      const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const f = ac.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq || 1000; f.Q.value = 1.2;
+      const gn = ac.createGain(); gn.gain.value = vol;
+      src.connect(f); f.connect(gn); gn.connect(out);
+      src.start(t);
+    }
+    // ベルのような澄んだ音（倍音を少し重ねたサイン波）
+    function bell(freq, delay, vol, dur) {
+      dur = dur || 1.6;
+      tone(freq, dur, 'sine', vol, null, delay, { attack: 0.005, rev: 0.6 });
+      tone(freq * 2, dur * 0.6, 'sine', vol * 0.25, null, delay, { attack: 0.005, rev: 0.6 });
+      tone(freq * 3, dur * 0.3, 'sine', vol * 0.08, null, delay, { attack: 0.005, rev: 0.6 });
+    }
+    return { tone, noise, bell };
+  }
+
+  // 効果音のレシピ（len = 残響込みの長さ・秒）
+  const SFX = {
+    step: { len: 0.1, fn: k => k.noise(0.025, 0.05, 2400) },
+    turn: { len: 0.15, fn: k => k.tone(880, 0.06, 'sine', 0.07, 1180) },
+    bump: {
+      len: 2.4, fn: k => {
+        k.tone(150, 0.4, 'sine', 0.9, 50);
+        k.tone(300, 0.25, 'triangle', 0.25, 90);
+        k.noise(0.1, 0.35, 500);
+        k.bell(1760, 0.02, 0.05, 1.0); // 鏡のキーン
+      },
+    },
+    whine: { len: 0.8, fn: k => k.tone(900, 0.35, 'sine', 0.1, 600, 0.35) },
+    bone: { len: 2.2, fn: k => [1047, 1319, 1568].forEach((f, i) => k.bell(f, i * 0.07, 0.09, 0.6)) },
+    sniff: { len: 0.3, fn: k => { k.noise(0.07, 0.3, 3200, 0); k.noise(0.07, 0.3, 3200, 0.14); } },
+    warp: {
+      len: 3.2, fn: k => {
+        k.tone(200, 0.8, 'sine', 0.2, 1600, 0, { rev: 0.8 });
+        k.tone(1600, 0.8, 'sine', 0.08, 200, 0.1, { rev: 0.8 });
+      },
+    },
+    // やわらかい「ワン」
+    bark: {
+      len: 0.3, fn: k => {
+        k.tone(720, 0.16, 'triangle', 0.22, 430, 0, { lp: 1800, attack: 0.012 });
+        k.tone(360, 0.14, 'sine', 0.18, 240, 0, { attack: 0.012 });
+      },
+    },
+    // クリア：きらきらしたベルのアルペジオ＋和音
+    clear: {
+      len: 5.6, fn: k => {
+        [72, 76, 79, 84, 88].forEach((m, i) => k.bell(mtof(m), i * 0.11, 0.16, 1.4));
+        [76, 79, 84].forEach(m => k.bell(mtof(m), 0.7, 0.1, 2.6));
+        k.bell(mtof(96), 0.95, 0.05, 2.0);
+      },
+    },
+    // ゲームオーバー：ゆっくり下がっていくベル
+    gameover: {
+      len: 6.0, fn: k => {
+        [76, 72, 69, 64].forEach((m, i) => k.bell(mtof(m), 0.35 + i * 0.22, 0.12, 1.6));
+        k.bell(mtof(57), 1.3, 0.08, 2.6);
+      },
+    },
+  };
+
+  // ---------- 事前生成（ページ読み込み時。ユーザー操作は不要） ----------
+  const buffers = {};
+  let preloadPromise = null;
+  function renderOffline(name) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const rate = 44100, rec = SFX[name];
+    const len = Math.ceil(rec.len * rate);
+    const off = new OAC(2, len, rate);
+    const out = off.createGain(); out.gain.value = 1; out.connect(off.destination);
+    let rev = null;
+    if (rec.len > 1) {
+      const conv = off.createConvolver(); conv.buffer = makeImpulse(off, 2.4, 2.6);
+      const revOut = off.createGain(); revOut.gain.value = 0.55;
+      rev = off.createGain(); rev.connect(conv); conv.connect(revOut); revOut.connect(off.destination);
+    }
+    rec.fn(makeKit(off, out, rev, 0));
+    return new Promise((resolve, reject) => {
+      off.oncomplete = e => resolve(e.renderedBuffer);
+      const r = off.startRendering();
+      if (r && r.then) r.then(resolve, reject);
+    }).then(buf => { buffers[name] = buf; });
+  }
+  function preload() {
+    if (preloadPromise) return preloadPromise;
+    if (!(window.OfflineAudioContext || window.webkitOfflineAudioContext)) return (preloadPromise = Promise.resolve());
+    const names = Object.keys(SFX);
+    // 1つずつ順番に（メインスレッドを長く止めないように）
+    preloadPromise = names.reduce((pr, n) => pr.then(() => renderOffline(n).catch(() => { /* 失敗したらその場で合成 */ })), Promise.resolve());
+    return preloadPromise;
+  }
+
   function ensure() {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
-      ctx = new AC();
+      try { ctx = new AC({ latencyHint: 'balanced' }); } catch (e) { ctx = new AC(); }
       master = ctx.createGain();
       master.gain.value = muted ? 0 : 1;
       const comp = ctx.createDynamicsCompressor();
@@ -26,8 +148,8 @@
       master.connect(comp); comp.connect(ctx.destination);
       sfxBus = ctx.createGain(); sfxBus.gain.value = 0.5; sfxBus.connect(master);
       musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
-      // 残響（鏡の空間っぽく）
-      const rev = ctx.createConvolver(); rev.buffer = makeImpulse(3.2, 2.6);
+      // BGM 用の残響（鏡の空間っぽく）
+      const rev = ctx.createConvolver(); rev.buffer = makeImpulse(ctx, 2.4, 2.6);
       const revOut = ctx.createGain(); revOut.gain.value = 0.55;
       reverbIn = ctx.createGain(); reverbIn.connect(rev); rev.connect(revOut); revOut.connect(master);
       // ディレイ（付点8分）
@@ -44,47 +166,19 @@
     return ctx;
   }
 
-  // ---------- 効果音 ----------
-  function tone(freq, dur, type, vol, freqEnd, delay, opts) {
+  function play(name) {
     if (muted || !ensure()) return;
-    opts = opts || {};
-    const t = ctx.currentTime + (delay || 0);
-    const o = ctx.createOscillator(), gn = ctx.createGain();
-    o.type = type || 'sine';
-    o.frequency.setValueAtTime(freq, t);
-    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
-    gn.gain.setValueAtTime(0.0001, t);
-    gn.gain.exponentialRampToValueAtTime(vol, t + (opts.attack || 0.008));
-    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    let node = o;
-    if (opts.lp) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
-    node.connect(gn); gn.connect(sfxBus);
-    if (opts.rev) { const s = ctx.createGain(); s.gain.value = opts.rev; gn.connect(s); s.connect(reverbIn); }
-    o.start(t); o.stop(t + dur + 0.05);
+    const buf = buffers[name];
+    if (buf) {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(sfxBus);
+      src.start(ctx.currentTime + 0.005);
+    } else {
+      // まだ生成できていなければ、その場で合成
+      SFX[name].fn(makeKit(ctx, sfxBus, reverbIn, ctx.currentTime));
+    }
   }
-
-  function noise(dur, vol, freq, delay, type) {
-    if (muted || !ensure()) return;
-    const t = ctx.currentTime + (delay || 0);
-    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const f = ctx.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq || 1000; f.Q.value = 1.2;
-    const gn = ctx.createGain(); gn.gain.value = vol;
-    src.connect(f); f.connect(gn); gn.connect(sfxBus);
-    src.start(t);
-  }
-
-  // ベルのような澄んだ音（倍音を少し重ねたサイン波）
-  function bell(freq, delay, vol, dur) {
-    dur = dur || 1.6;
-    tone(freq, dur, 'sine', vol, null, delay, { attack: 0.005, rev: 0.6 });
-    tone(freq * 2, dur * 0.6, 'sine', vol * 0.25, null, delay, { attack: 0.005, rev: 0.6 });
-    tone(freq * 3, dur * 0.3, 'sine', vol * 0.08, null, delay, { attack: 0.005, rev: 0.6 });
-  }
-  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
   // ---------- BGM（サイバー空間風・自動生成） ----------
   const BPM = 104;
@@ -97,7 +191,7 @@
   ];
   const ARP = [0, 2, 4, 2, 1, 3, 4, 3, 0, 2, 4, 5, 3, 2, 1, 2];
   let mode = 'off';       // off | calm | title | play
-  let scheduler = null, step = 0, nextTime = 0;
+  let scheduler = null, step = 0, nextTime = 0, hatBuf = null;
 
   function vnode(type, freq, t, dur, vol, out, opts) {
     opts = opts || {};
@@ -164,10 +258,13 @@
     }
     // ハイハット（ごく小さく）
     if (pos % 4 === 2) {
-      const len = Math.floor(ctx.sampleRate * 0.04);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-      const src = ctx.createBufferSource(); src.buffer = buf;
+      if (!hatBuf) {
+        const len = Math.floor(ctx.sampleRate * 0.04);
+        hatBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = hatBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      }
+      const src = ctx.createBufferSource(); src.buffer = hatBuf;
       const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 9000;
       const g = ctx.createGain(); g.gain.value = 0.045;
       src.connect(f); f.connect(g); g.connect(musicBus); src.start(t);
@@ -194,40 +291,20 @@
   }
 
   window.Sound = {
+    preload,
+    readyCount: () => Object.keys(buffers).length,
+    _buffers: buffers,
     unlock() { ensure(); applyMusicGain(); },
-    step() { noise(0.025, 0.05, 2400); },
-    turn() { tone(880, 0.06, 'sine', 0.07, 1180); },
-    bump() {
-      tone(150, 0.4, 'sine', 0.9, 50);
-      tone(300, 0.25, 'triangle', 0.25, 90);
-      noise(0.1, 0.35, 500);
-      bell(1760, 0.02, 0.05, 1.0); // 鏡のキーン
-    },
-    whine() { tone(900, 0.35, 'sine', 0.1, 600, 0.35); },
-    bone() { [1047, 1319, 1568].forEach((f, i) => bell(f, i * 0.07, 0.09, 0.6)); },
-    sniff() { noise(0.07, 0.3, 3200, 0); noise(0.07, 0.3, 3200, 0.14); },
-    warp() {
-      tone(200, 0.8, 'sine', 0.2, 1600, 0, { rev: 0.8 });
-      tone(1600, 0.8, 'sine', 0.08, 200, 0.1, { rev: 0.8 });
-    },
-    // やわらかい「ワン」
-    bark(delay) {
-      const d = delay || 0;
-      tone(720, 0.16, 'triangle', 0.22, 430, d, { lp: 1800, attack: 0.012 });
-      tone(360, 0.14, 'sine', 0.18, 240, d, { attack: 0.012 });
-    },
-    // クリア：きらきらしたベルのアルペジオ＋和音
-    clear() {
-      const seq = [72, 76, 79, 84, 88];
-      seq.forEach((m, i) => bell(mtof(m), i * 0.11, 0.16, 1.4));
-      [76, 79, 84].forEach(m => bell(mtof(m), 0.7, 0.1, 2.6));
-      bell(mtof(96), 0.95, 0.05, 2.0);
-    },
-    // ゲームオーバー：ゆっくり下がっていくベル
-    gameover() {
-      [76, 72, 69, 64].forEach((m, i) => bell(mtof(m), 0.35 + i * 0.22, 0.12, 1.6));
-      bell(mtof(57), 1.3, 0.08, 2.6);
-    },
+    step() { play('step'); },
+    turn() { play('turn'); },
+    bump() { play('bump'); },
+    whine() { play('whine'); },
+    bone() { play('bone'); },
+    sniff() { play('sniff'); },
+    warp() { play('warp'); },
+    bark() { play('bark'); },
+    clear() { play('clear'); },
+    gameover() { play('gameover'); },
     music(m) { mode = m; if (ctx) applyMusicGain(); },
     setMuted(m) {
       muted = m;
@@ -237,4 +314,8 @@
     setMusicOn(v) { musicOn = v; applyMusicGain(); },
     isMusicOn() { return musicOn; },
   };
+
+  // 読み込み直後から効果音を準備しておく
+  if (document.readyState === 'complete') setTimeout(preload, 0);
+  else window.addEventListener('load', () => setTimeout(preload, 0));
 })();

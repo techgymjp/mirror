@@ -552,7 +552,8 @@
         px: demo.x, py: demo.y, ang: demo.ang, bob: 0,
         sprites: [dogSprite(demo.x, demo.y, demo.ang, 0)],
       });
-    } else if (level && p) {
+    } else if (level && p && $('clear').hidden && $('over').hidden) {
+      // 結果画面の表示中は 3D の再描画を止めて、音の処理に余裕をもたせる
       if (state === 'ready') {
         readyTimer -= dt;
         if (readyTimer <= 0) { state = 'play'; p.running = true; popup('ワン！', 'go'); Sound.bark(); }
