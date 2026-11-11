@@ -6,7 +6,7 @@
   const DIRS = Maze.DIRS;
   const DIR_NAMES = ['東', '南', '西', '北'];
   const CAM_BACK = 0.42, CAM_Z_BEHIND = 0.56;
-  const TURN_DUR = 0.14, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
+  const TURN_DUR = 0.11, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
   const SAVE_KEY = 'inu-kagami-v2';
 
   // ---------- コース ----------
@@ -49,32 +49,32 @@
   //   compass: 方角表示  warpHint: ワープ扉の紫がかり（0 で本物と同じ見た目）
   const STAGES = [
     { name: 'はじめての鏡', desc: 'まずは鏡の迷路に慣れよう', maze: { w: 4, h: 4, loops: 1, seed: 509 }, bones: 2,
-      tint: 0.26, tintColor: 'rgb(70,110,190)', fog: 11, speed: 1.8, compass: true, warpHint: 0.35 },
+      tint: 0.26, tintColor: 'rgb(70,110,190)', fog: 11, speed: 2.4, compass: true, warpHint: 0.35 },
     { name: 'まっすぐ廊下', desc: '長い廊下の先に急カーブ。曲がり遅れに注意', maze: { w: 6, h: 4, straight: 0.9, loops: 1, seed: 3624 }, bones: 2,
-      tint: 0.22, tintColor: 'rgb(50,160,170)', sky: '#0f2228', floor: '#3f5a5c', fog: 12, speed: 2.0, compass: true, warpHint: 0.3 },
+      tint: 0.22, tintColor: 'rgb(50,160,170)', sky: '#0f2228', floor: '#3f5a5c', fog: 12, speed: 2.7, compass: true, warpHint: 0.3 },
     { name: 'らせん回廊', desc: '中心から外へ、ぐるぐる右回り。わき道の扉はワープ', maze: { course: 'spiral' },
-      tint: 0.2, tintColor: 'rgb(140,90,210)', sky: '#1d1238', floor: '#4f3a66', fog: 12, speed: 2.2, compass: true, warpHint: 0.25 },
+      tint: 0.2, tintColor: 'rgb(140,90,210)', sky: '#1d1238', floor: '#4f3a66', fog: 12, speed: 3.0, compass: true, warpHint: 0.25 },
     { name: 'つづら折り', desc: '右・右・左・左のリズム。近道もあるよ', maze: { course: 'zigzag' },
-      tint: 0.18, tintColor: 'rgb(70,170,110)', sky: '#0f2418', floor: '#3c5a44', fog: 12, speed: 2.5, compass: true, warpHint: 0.2 },
+      tint: 0.18, tintColor: 'rgb(70,170,110)', sky: '#0f2418', floor: '#3c5a44', fog: 12, speed: 3.4, compass: true, warpHint: 0.2 },
     { name: '鏡の大広間', desc: '広い部屋では映りこみが何倍にも。どこでも曲がれる', maze: { w: 6, h: 6, loops: 3, rooms: 2, seed: 2384 }, bones: 3,
-      tint: 0.15, tintColor: 'rgb(200,160,80)', sky: '#261d0e', floor: '#5e4c30', fog: 13, speed: 2.3, compass: true, warpHint: 0.1 },
+      tint: 0.15, tintColor: 'rgb(200,160,80)', sky: '#261d0e', floor: '#5e4c30', fog: 13, speed: 3.1, compass: true, warpHint: 0.1 },
     { name: '闇の合わせ鏡', desc: 'ほぼ真っ暗。ときどき光る稲妻で先を見よう', maze: { w: 6, h: 6, loops: 4, seed: 5012 }, bones: 3,
-      tint: 0.12, tintColor: 'rgb(60,70,170)', sky: '#05050c', floor: '#1a1826', fog: 3.2, lightning: true, speed: 2.1, compass: false, warpHint: 0 },
+      tint: 0.12, tintColor: 'rgb(60,70,170)', sky: '#05050c', floor: '#1a1826', fog: 3.2, lightning: true, speed: 2.8, compass: false, warpHint: 0 },
     { name: '横長回廊', desc: 'くねくね曲がる細長い迷路', maze: { w: 11, h: 4, twist: 0.7, loops: 4, seed: 1610 }, bones: 3,
-      tint: 0.11, tintColor: 'rgb(200,90,100)', sky: '#250e14', floor: '#5c3640', fog: 13, speed: 2.6, compass: false, warpHint: 0 },
+      tint: 0.11, tintColor: 'rgb(200,90,100)', sky: '#250e14', floor: '#5c3640', fog: 13, speed: 3.5, compass: false, warpHint: 0 },
     { name: '鏡の国', desc: '画面が左右反転！見た目と逆にフリック', maze: { w: 6, h: 6, loops: 5, seed: 409 }, bones: 3,
-      tint: 0.1, tintColor: 'rgb(210,120,190)', sky: '#24102a', floor: '#5a3a5e', fog: 13, mirrorWorld: true, speed: 2.3, compass: false, warpHint: 0 },
+      tint: 0.1, tintColor: 'rgb(210,120,190)', sky: '#24102a', floor: '#5a3a5e', fog: 13, mirrorWorld: true, speed: 3.1, compass: false, warpHint: 0 },
     { name: '加速する迷宮', desc: '時間がたつほど犬が速くなる。迷っている暇はない', maze: { w: 7, h: 7, loops: 6, seed: 7124 }, bones: 4,
-      tint: 0.08, tintColor: 'rgb(220,130,60)', sky: '#26140a', floor: '#5e4030', fog: 14, speed: 2.2, speedUp: { per: 25, max: 1.8 }, compass: false, warpHint: 0 },
+      tint: 0.08, tintColor: 'rgb(220,130,60)', sky: '#26140a', floor: '#5e4030', fog: 14, speed: 3.0, speedUp: { per: 25, max: 1.8 }, compass: false, warpHint: 0 },
     { name: '鏡の大迷宮', desc: 'これまでの試練の集大成', maze: { w: 9, h: 9, loops: 10, rooms: 1, seed: 4667 }, bones: 5,
-      tint: 0.05, tintColor: 'rgb(150,160,210)', fog: 15, speed: 2.7, speedUp: { per: 60, max: 1.35 }, compass: false, warpHint: 0 },
+      tint: 0.05, tintColor: 'rgb(150,160,210)', fog: 15, speed: 3.6, speedUp: { per: 60, max: 1.35 }, compass: false, warpHint: 0 },
   ];
   function randomCfg() {
     const seed = (Math.random() * 1e9) | 0;
     const r = Maze.mulberry32(seed);
     const n = 6 + Math.floor(r() * 3);
     return { name: 'きまぐれ迷宮', desc: '毎回ちがう迷路', maze: { w: n, h: n, loops: 5 + Math.floor(r() * 5), rooms: Math.floor(r() * 2), seed }, bones: 4,
-      tint: 0.08, fog: 14, speed: 2.8, compass: false, warpHint: 0, random: true };
+      tint: 0.08, fog: 14, speed: 3.8, compass: false, warpHint: 0, random: true };
   }
   function buildLevel(c) {
     if (c.maze.course) return Maze.fromAscii(COURSES[c.maze.course], 7);
@@ -141,7 +141,7 @@
     $('compass').hidden = !cfg.compass;
     state = 'ready';
     Sound.music('play');
-    readyTimer = 1.6;
+    readyTimer = 1.2;
     popup('よーい…', 'ready');
     hint(cfg.desc + (i === 0 ? (isTouch ? '　← → フリックで次の角を曲がる' : '　← → キーで次の角を曲がる') : ''), 4);
     updateHud(true);
@@ -158,7 +158,6 @@
     if (q === -2) q = 2;
     p.queued = q === 0 ? null : q;
     Sound.flick(q === 2 ? 0 : d);
-    if (p.queued !== null) showTurnIndicator(p.queued);
   }
   function toggleMap() { showMap = !showMap; $('minimap').hidden = !showMap; }
 
@@ -200,7 +199,8 @@
   view.addEventListener('pointerup', endPtr);
   view.addEventListener('pointercancel', endPtr);
   // iOS のスクロール・ズームを防ぐ
-  view.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  // プレイ中だけ画面のスクロールを止める（タイトルなどのメニューはスクロールできるように）
+  view.addEventListener('touchmove', e => { if (!e.target.closest('.overlay')) e.preventDefault(); }, { passive: false });
 
   $('btnMap').addEventListener('click', toggleMap);
   $('btnPause').addEventListener('click', togglePause);
@@ -225,13 +225,25 @@
 
   function decide() {
     if (p.queued !== null) {
-      const d = p.queued; p.queued = null;
+      const d = p.queued;
+      // 予約した曲がりは、その向きに曲がれるマスに着くまで持ち越す（早めのフリックでも壁に突っこまない）
+      // ゴンのあとに止まっているときだけは、その場で向きを変える
+      if (!p.halted) {
+        const nd = (p.dir + (d === 2 ? 2 : d) + 4) % 4;
+        const tc = cellAt(p.cx + DIRS[nd][0], p.cy + DIRS[nd][1]);
+        if (tc === 1) { if (p.running) return goStraight(); p.mode = 'wait'; return; }
+      }
+      p.queued = null;
       p.mode = 'turn'; p.t = 0;
       p.fromAng = p.ang; p.toAng = p.ang + (d === 2 ? Math.PI : d * Math.PI / 2);
       p.dir = (p.dir + (d === 2 ? 2 : d) + 4) % 4;
       return;
     }
     if (!p.running) { p.mode = 'wait'; return; }
+    goStraight();
+  }
+
+  function goStraight() {
     const [dx, dy] = DIRS[p.dir];
     const nx = p.cx + dx, ny = p.cy + dy;
     const c = cellAt(nx, ny);
@@ -345,7 +357,7 @@
     lightning.next -= dt;
     if (lightning.next <= 0) {
       lightning.t = 0.9;
-      lightning.next = 3 + Math.random() * 3;
+      lightning.next = 1.6 + Math.random() * 1.6;
       flash('rgba(200,210,255,0.55)', 0.25);
       Sound.thunder();
     }
@@ -488,13 +500,16 @@
   }
   function flash(color, sec) { flashColor = color; flashTimer = sec; flashDur = sec; }
   let flashDur = 1;
-  let turnIndTimer = null;
-  function showTurnIndicator(d) {
+  // 予約中の曲がりを、実行されるまで表示しておく
+  let turnIndShown = null;
+  function syncTurnIndicator() {
+    const q = state === 'play' || state === 'ready' ? p.queued : null;
+    if (q === turnIndShown) return;
+    turnIndShown = q;
     const el = $('turnInd');
-    el.textContent = d === -1 ? '↰' : d === 1 ? '↱' : '↶↶';
+    if (q === null) { el.className = 'turn-ind'; return; }
+    el.textContent = q === -1 ? '↰' : q === 1 ? '↱' : '↶↶';
     el.className = 'turn-ind show';
-    clearTimeout(turnIndTimer);
-    turnIndTimer = setTimeout(() => { el.className = 'turn-ind'; }, 450);
   }
 
   // ---------- HUD ----------
@@ -685,7 +700,7 @@
       // 背後カメラ：犬の少し後ろ・少し上から（自分の背中と、合わせ鏡にずらりと並ぶ自分が見える）
       const back = camBehind ? CAM_BACK : 0;
       renderer.render({ px: p.x - Math.cos(p.ang) * back, py: p.y - Math.sin(p.ang) * back, ang: p.ang, bob, sprites, camZ: camBehind ? CAM_Z_BEHIND : undefined });
-      if (state !== 'paused') { updateHud(false); drawMinimap(); }
+      if (state !== 'paused') { updateHud(false); drawMinimap(); syncTurnIndicator(); }
     }
 
     // フラッシュ

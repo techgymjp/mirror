@@ -155,12 +155,12 @@ function median(a) { if (!a.length) return NaN; const s = a.slice().sort((p, q) 
 
 const N = Number(process.argv.find(a => /^\d+$/.test(a))) || 1000;
 const rnd = Maze.mulberry32(20261111);
-// rule: 'now'  = いまの仕様（予約した曲がりは次のマスで実行。早すぎると手前で曲がる）
-//       'hold' = 予約を、その向きに曲がれるマスまで持ち越す
-const RULE = process.argv.includes('--hold') ? 'hold' : 'now';
+// rule: 'hold' = 予約を、その向きに曲がれるマスまで持ち越す（いまのゲーム）
+//       'now'  = 以前の仕様（予約した曲がりは次のマスで実行。早すぎると手前で曲がる）
+const RULE = process.argv.includes('--now') ? 'now' : 'hold'; // いまのゲームは 'hold'。--now で以前の仕様
 // 調整案を試すオプション：--speed=0.85（走る速さの倍率） --bones=1（最初から持っているほね）
 const argOf = (k, d) => { const a = process.argv.find(v => v.startsWith('--' + k + '=')); return a ? Number(a.split('=')[1]) : d; };
-var OPT = { speed: argOf('speed', 1), startBones: argOf('bones', 0), flash: 0.25 };
+var OPT = { speed: argOf('speed', 1), startBones: argOf('bones', 0), flash: 0.4 }; // flash: 闇ステージで稲妻に助けられる割合
 // --tuned：調整案（速さの上がり方をなだらかに、加速を控えめに、稲妻を多めに）
 const TUNED = { speeds: [1.6, 1.8, 1.9, 2.0, 2.1, 1.9, 2.3, 2.1, 2.0, 2.4], speedUpMax: 1.5, flash: 0.4 };
 if (process.argv.includes('--tuned')) {
@@ -194,7 +194,7 @@ if (process.argv.includes('--causes')) {
   process.exit(0);
 }
 if (process.argv.includes('--json')) { console.log(JSON.stringify(out, null, 1)); process.exit(0); }
-console.log(`[${RULE === 'now' ? 'いまの仕様' : '予約を持ち越す仕様'} 速さ×${OPT.speed} 最初のほね${OPT.startBones}${process.argv.includes('--tuned') ? ' 調整案' : ''}] 各ステージ ${N} 回ずつ（クリア率% / ゲームオーバー% / 迷って時間切れ% / クリア時の中央タイム秒 / ★3の割合%）\n`);
+console.log(`[${RULE === 'now' ? '以前の仕様' : 'いまの仕様（予約を持ち越す）'} 速さ×${OPT.speed} 最初のほね${OPT.startBones}${process.argv.includes('--tuned') ? ' 調整案' : ''}] 各ステージ ${N} 回ずつ（クリア率% / ゲームオーバー% / 迷って時間切れ% / クリア時の中央タイム秒 / ★3の割合%）\n`);
 const h = ['#', 'ステージ', ...Object.keys(SKILLS).map(k => k.padEnd(4))];
 console.log(h.join('\t'));
 for (const r of out) {
