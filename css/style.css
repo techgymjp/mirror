@@ -63,7 +63,7 @@ button { font: inherit; color: inherit; }
 .popup.small { font-size: 26px; top: 30%; }
 .popup.ready { font-size: 40px; }
 
-.hint { position: absolute; left: 50%; bottom: max(78px, calc(env(safe-area-inset-bottom) + 70px)); transform: translateX(-50%); padding: 8px 14px; border-radius: 999px; background: rgba(10, 8, 20, .7); border: 1px solid var(--line); font-size: 14px; white-space: nowrap; opacity: 0; transition: opacity .3s; }
+.hint { position: absolute; left: 50%; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 146px); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); padding: 8px 14px; border-radius: 16px; background: rgba(10, 8, 20, .75); border: 1px solid var(--line); font-size: 14px; line-height: 1.45; text-align: center; text-wrap: balance; white-space: pre-line; word-break: auto-phrase; opacity: 0; transition: opacity .3s; pointer-events: none; }
 .hint.show { opacity: 1; }
 
 /* オーバーレイ */
@@ -76,7 +76,7 @@ h1 { margin: 0; font-size: clamp(30px, 8vw, 44px); line-height: 1.15; font-weigh
 h1 span { background: linear-gradient(90deg, #cfe0ff, #fff, #9fb7ff, #fff); -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% 100%; animation: shine 3s linear infinite; }
 @keyframes shine { to { background-position: -200% 0; } }
 h2 { margin: 0 0 14px; font-size: 24px; }
-.lead { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 12px 0 18px; }
+.lead { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 12px 0 18px; text-wrap: balance; word-break: auto-phrase; }
 
 .stage-list { display: grid; gap: 8px; }
 .stage-btn { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); cursor: pointer; text-align: left; transition: background .15s, transform .1s; }
@@ -111,6 +111,9 @@ kbd { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 5px; 
   .stage-name { display: none; }
   .hud-btn { width: 34px; height: 34px; font-size: 15px; }
   #minimap { width: 104px; height: 104px; }
+  .hint { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 116px); font-size: 13px; }
+  /* 説明文は決め打ちの改行をやめ、行の長さをそろえて折り返す（「へ！」だけの行を作らない） */
+  .lead br { display: none; }
   .compass { top: 56px; }
   /* スマホ：タイトルをコンパクトにして、全ステージが1画面に収まるように */
   .overlay { padding: 10px; align-items: flex-start; }
@@ -161,3 +164,17 @@ body.native .overlay { padding-bottom: 72px; }
 .lang-sel { margin: 12px 0 0; display: flex; gap: 8px; justify-content: center; }
 .lang-btn { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); font-size: 13px; cursor: pointer; }
 .lang-btn.on { background: rgba(143,179,255,.2); color: var(--text); border-color: rgba(143,179,255,.6); }
+
+/* 画面の低いスマホ：タイトルを詰めて、言語切り替えとプライバシーポリシーまで 1 画面に収める */
+@media (max-height: 620px) {
+  .title-panel { padding-top: 12px; padding-bottom: 12px; }
+  .title-panel .kicker { font-size: 10px; letter-spacing: .15em; }
+  .title-panel h1 { font-size: 24px; line-height: 1.1; }
+  .title-panel .lead { font-size: 11.5px; line-height: 1.5; margin: 6px 0 8px; }
+  .title-panel .stage-btn { padding: 6px 8px; }
+  .title-panel .row-btns { margin-top: 8px; }
+  .title-panel .row-btns .btn { padding: 9px 14px; font-size: 14px; }
+  .title-panel .lang-sel { margin-top: 8px; }
+  .title-panel .lang-btn { padding: 4px 12px; font-size: 12px; }
+  .title-panel .legal { margin-top: 6px; }
+}

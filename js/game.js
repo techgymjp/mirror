@@ -151,7 +151,7 @@
     Sound.music('play');
     readyTimer = 1.2;
     popup(t('pop.ready'), 'ready');
-    hint(stageDesc(cfg) + (i === 0 ? ' — ' + t(isTouch ? 'hint.firstTouch' : 'hint.firstKeys') : ''), 4);
+    hint(stageDesc(cfg) + (i === 0 ? '\n' + t(isTouch ? 'hint.firstTouch' : 'hint.firstKeys') : ''), 4);
     updateHud(true);
   }
 
