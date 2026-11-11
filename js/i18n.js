@@ -80,7 +80,7 @@ window.I18N = (() => {
     en: {
       'doc.title': 'Mirror Maze Dog',
       'title.h1': 'Mirror<br><span>Maze Dog</span>',
-      'title.lead': 'Every wall is a mirror. Is that path real, or a reflection?<br>Flick to guide your running Shiba to the one true exit!<br>Bump into a mirror and you\'re out!',
+      'title.lead': 'Every wall is a mirror. Is that path real, or a reflection? <br>Flick to guide your running Shiba to the one true exit! <br>Bump into a mirror and you\'re out!',
       'btn.howto': 'How to play',
       'legal.privacy': 'Privacy Policy',
       'url.privacy': 'https://techgym.jp/privacy-policy-en/',

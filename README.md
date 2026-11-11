@@ -66,7 +66,7 @@
 
 <img src="docs/apk-qr.png" width="180" alt="Android 版（動作確認用）のリリース画面の QR コード">
 
-ストアの掲載文の下書き: `docs/store/listing.md`
+ストアの掲載文（ASO を意識した日英）と画像: `docs/store/listing.md`（画像は `node tools/store-shots.js` で撮り直せる）
 
 ## ライセンス
 
