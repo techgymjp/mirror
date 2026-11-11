@@ -368,6 +368,9 @@
     saved() { play('saved'); },
     thunder() { play('thunder'); },
     music(m) { mode = m; if (ctx) applyMusicGain(); },
+    // アプリが裏に回ったときや広告の表示中は音を止める
+    suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); },
+    resume() { if (ctx && ctx.state === 'suspended' && !document.hidden) ctx.resume(); },
     setMuted(m) {
       muted = m;
       if (ctx) master.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, 0.05);

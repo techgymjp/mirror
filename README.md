@@ -35,9 +35,46 @@
 全ステージクリアで、毎回ちがう「きまぐれ迷宮」が遊べます。
 画面右上の 🐕 / 👁 ボタンで、背後視点（自分の背中と、合わせ鏡にずらりと並ぶ自分が見える）と犬目線を切り替えられます。
 
+## Android アプリ
+
+[Capacitor](https://capacitorjs.com/) でゲームのファイルをアプリに同梱し、Android アプリにしています（オフラインで遊べます）。
+構成は techgymjp/jet-fighter の `docs/ANDROID_PORTING.md`、techgymjp/jackal と同じです。
+
+- パッケージ名: `jp.techgym.mirror`
+- 縦画面（`sensorPortrait`）・全画面・プレイ中は画面を消さない
+- 戻るボタン: プレイ中は一時停止（ポーズ中なら再開）、あそびかたではタイトルへ、タイトル・結果画面ではアプリを終了
+- 別アプリに切り替えると自動で一時停止して音を止める
+- シェアは Android の共有メニュー（クリア・ゲームオーバーの結果画面）
+- 広告（AdMob）
+  - バナー: タイトル・あそびかた・ポーズ・結果画面の下中央（プレイ中は出さない）
+  - 全画面広告（インタースティシャル）: ステージを始める、タイトルへ戻る（あそびかた・ポーズ・結果画面から）、ポーズからの再開、結果画面の「もう一度」「次のステージへ」のたびに毎回
+  - リワード広告（チート）: 鏡にぶつかってゲームオーバーになったら「広告を見て、つづきから」（1 ステージ 3 回まで。ぶつかった様子を見届けられるよう 2.2 秒後に出し、6 秒で自動的に結果画面へ）。
+    見終わると、ぶつかった場所で止まった状態から再開。使ったことは結果画面とシェア文に「やり直し N 回」と出る
+  - EU など同意が必要な地域ではタイトル画面に「広告の設定」
+  - 本番の広告ユニット ID は `js/ads.js`、AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml`（届くまではテスト用）
+- タイトル画面にバージョン（ビルド番号）とプライバシーポリシーへのリンク
+- アイコンと起動画面: `python3 tools/render_icon.py` で `appicon/` に元画像を作り、`npx @capacitor/assets generate --android --assetPath appicon` で生成
+
+ビルドは GitHub Actions（`.github/workflows/android.yml`）で行います。
+
+1. `npm ci` → `npm run build:app`（`www/` に Web ファイルをコピーし、Web 版だけの部分（撮影・テスト用の `window.__game`、PC のキー操作の説明）を取り除き、`ads-config.js` と `build-info.js` を生成）→ `npx cap sync android` → `./gradlew assembleDebug`
+2. 既定ブランチなら、Release `android-latest` の `mirror.apk` を差し替え（動作確認用・テスト広告）
+   - リリース画面: `https://github.com/techgymjp/mirror/releases/tag/android-latest`（QR コード: `docs/apk-qr.png`）
+   - APK 直接: `https://github.com/techgymjp/mirror/releases/latest/download/mirror.apk`
+3. GitHub Secrets（`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD`）があれば、本番広告で署名付き AAB を作り、Artifact `mirror-release-aab` に上げる（Google Play 用）
+
+<img src="docs/apk-qr.png" width="180" alt="Android 版（動作確認用）のリリース画面の QR コード">
+
+ストアの掲載文の下書き: `docs/store/listing.md`
+
+## ライセンス
+
+著作権はテックジム株式会社に帰属します（All rights reserved）。許可なく複製・改変・再配布すること、Web サイトやアプリ（Google Play など）として公開・販売すること、名前・アイコン・画像を使うことを禁止します。
+テックジムの受講生が学習目的で複製・改変することは許可しますが、アプリストアでの公開・広告の掲載・販売などの商用利用は禁止です。詳しくは `LICENSE` を見てください。
+
 ## 起動
 
-ビルド不要。`index.html` をブラウザで開くだけで遊べます（ローカルファイルでも動きます）。
+Web 版はビルド不要。`index.html` をブラウザで開くだけで遊べます（ローカルファイルでも動きます）。GitHub Pages でもそのまま公開しています。
 
 ```bash
 python3 -m http.server 8000

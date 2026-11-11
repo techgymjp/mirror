@@ -49,6 +49,11 @@
         <button class="btn ghost btn-music" aria-label="BGM">♪ BGM</button>
         <button class="btn ghost btn-sound" aria-label="音">🔊</button>
       </div>
+      <p class="legal">
+        <span id="buildInfo"></span>
+        <a href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
+        <span id="adPrivacy" hidden>｜<a href="#" id="adPrivacyLink">広告の設定</a></span>
+      </p>
     </div>
   </section>
 
@@ -57,9 +62,12 @@
       <h2>遊び方</h2>
       <ul>
         <li><b>あなたは犬。</b>迷路の中を自動で前へ走りつづけます。</li>
-        <li>操作は<b>左右だけ</b>。<b>フリック ← →</b> で曲がる予約。<b>その向きに曲がれる角</b>に着いたら曲がります（PC は <kbd>←</kbd><kbd>→</kbd>）。早めのフリックでも大丈夫。</li>
+        <li>操作は<b>左右だけ</b>。<b>フリック ← →</b> で曲がる予約。<b>その向きに曲がれる角</b>に着いたら曲がります。早めのフリックでも大丈夫。</li>
         <li>行き止まりでは、角に着く前に<b>同じ向きへ2回</b>フリックすると後ろを向けます。</li>
-        <li>PC は <kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
+        <!-- web-only -->
+        <li>PC は <kbd>←</kbd><kbd>→</kbd> で曲がる、<kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
+        <!-- /web-only -->
+        <li>右上の <b>🗺</b> で地図、<b>Ⅱ</b> で一時停止。</li>
         <li>右上の <b>🐕 / 👁</b> で視点を切り替え（背後視点 / 犬目線）。</li>
         <li>全10ステージ。らせん、つづら折り、暗闇、左右反転、加速…ステージごとに仕掛けが変わります。</li>
         <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れて鏡に当たると「ゴン！」で<b>即ゲームオーバー</b>。</li>
@@ -88,9 +96,17 @@
       <p class="over-msg">鏡にぶつかってしまった…<br>次は曲がり角を見きわめよう！</p>
       <div id="overStats" class="clear-stats"></div>
       <button id="btnOverRetry" class="btn">もう一度</button>
+      <button id="btnShareOver" class="btn ghost">シェア</button>
       <button id="btnOverTitle" class="btn ghost">タイトルへ</button>
     </div>
   </section>
+
+  <!-- アプリのみ：リワード広告を見て、ぶつかった場所からつづける -->
+  <div id="redo" class="redo" hidden>
+    <p id="redoNote"></p>
+    <button id="redoWatch" class="btn">▶ 広告を見て、つづきから</button>
+    <button id="redoSkip" class="btn ghost">あきらめる</button>
+  </div>
 
   <section id="clear" class="overlay" hidden>
     <div class="panel small">
@@ -100,15 +116,19 @@
       <div id="clearStats" class="clear-stats"></div>
       <button id="btnNext" class="btn">次のステージへ</button>
       <button id="btnAgain" class="btn ghost">もう一度</button>
+      <button id="btnShareClear" class="btn ghost">シェア</button>
       <button id="btnTitle" class="btn ghost">タイトルへ</button>
     </div>
   </section>
 </div>
 
+<script src="js/ads-config.js"></script>
+<script src="js/build-info.js"></script>
 <script src="js/maze.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/renderer.js"></script>
+<script src="js/ads.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

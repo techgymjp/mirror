@@ -139,3 +139,20 @@ kbd { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 5px; 
   .panel.title-panel { max-width: 720px; }
   .stage-list { grid-template-columns: 1fr 1fr; }
 }
+
+/* タイトル画面の下：バージョン・プライバシーポリシー・広告の設定 */
+.legal { margin: 14px 0 0; font-size: 11.5px; color: var(--muted); }
+.legal a { color: var(--muted); }
+.legal #buildInfo:not(:empty)::after { content: '｜'; }
+.legal [hidden] { display: none; }
+
+/* リワード広告の提案（アプリのみ） */
+.redo { position: absolute; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92%, 380px);
+  padding: 16px; border-radius: 18px; background: var(--panel); border: 1px solid rgba(255, 181, 71, .45); text-align: center; z-index: 5;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.redo[hidden] { display: none; }
+.redo p { margin: 0 0 4px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.redo .btn { margin-top: 8px; }
+
+/* アプリでは画面下にバナー広告が出るので、メニューの下に余白をとる */
+body.native .overlay { padding-bottom: 72px; }

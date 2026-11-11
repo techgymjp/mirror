@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- ホーム画面に出る短い名前（英語） -->
+    <string name="app_name">Mirror Dog</string>
+    <string name="title_activity_main">Mirror Dog</string>
+</resources>

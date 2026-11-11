@@ -3,6 +3,10 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
+  // Android アプリ（Capacitor）で動いているか。Web 版では Capacitor がないので何もしない
+  const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const plugin = name => (NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins[name] : null);
+  if (NATIVE) document.body.classList.add('native');
   const DIRS = Maze.DIRS;
   const DIR_NAMES = ['東', '南', '西', '北'];
   const CAM_BACK = 0.42, CAM_Z_BEHIND = 0.56;
@@ -118,6 +122,7 @@
     Sound.unlock();
     clearTimeout(clearTimer);
     clearTimeout(overTimer);
+    closeRedo(false);
     stageIdx = i;
     cfg = i < STAGES.length ? STAGES[i] : randomCfg();
     level = buildLevel(cfg);
@@ -132,7 +137,7 @@
       mode: 'wait', t: 0, running: false, queued: null, walk: 0, from: null, to: null,
     };
     bones = level.bones.map(b => ({ x: b.x + 0.5, y: b.y + 0.5, cx: b.x, cy: b.y, taken: false }));
-    stats = { time: 0, warps: 0, bumps: 0, bones: 0, got: 0 }; // bones = 手持ち（お守り）, got = 拾った数
+    stats = { time: 0, warps: 0, bumps: 0, bones: 0, got: 0, redo: 0 }; // bones = 手持ち（お守り）, got = 拾った数
     visited = new Set([s.x + ',' + s.y]);
     enteredWarps = new Set();
     showOverlay(null);
@@ -168,8 +173,8 @@
   };
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { togglePause(); e.preventDefault(); return; }
-    if (state === 'title' && (e.key === 'Enter')) { startStage(firstUncleared()); return; }
-    if (state === 'over' && !$('over').hidden && (e.key === 'Enter' || e.key === ' ')) { startStage(cfg.random ? STAGES.length : stageIdx); e.preventDefault(); return; }
+    if (state === 'title' && (e.key === 'Enter')) { playStage(firstUncleared()); return; }
+    if (state === 'over' && !$('over').hidden && (e.key === 'Enter' || e.key === ' ')) { playStage(sameStage()); e.preventDefault(); return; }
     const f = KEYMAP[e.key];
     if (f && (state === 'play' || state === 'ready')) { if (!e.repeat) f(); e.preventDefault(); }
   });
@@ -309,15 +314,78 @@
     Sound.music('calm');
     Sound.gameover();
     popup('ゲームオーバー', 'ready');
-    overTimer = setTimeout(() => {
-      if (state !== 'over') return;
-      const reached = level.pathLen - Math.max(0, level.exitDist[p.cy][p.cx]);
-      const pct = Math.max(0, Math.min(99, Math.round(reached / level.pathLen * 100)));
-      $('overKicker').textContent = '💥 ゴン！ ' + (cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1));
-      $('overStats').innerHTML = row('タイム', fmtTime(stats.time)) + row('出口までの道のり', pct + '%') + row('ワープ', stats.warps + ' 回') + row('ほねでセーフ', stats.bumps - 1 + ' 回') + row('拾ったほね', stats.got + ' / ' + bones.length);
-      $('hud').hidden = true;
-      showOverlay('over');
-    }, 1400);
+    // アプリでは、ぶつかった様子を見届けてから「広告を見てつづきから」を提案する
+    if (Ads.canReward && stats.redo < REDO_MAX) overTimer = setTimeout(showRedo, REDO_DELAY * 1000);
+    else overTimer = setTimeout(showOverResult, 1400);
+  }
+  function overProgress() {
+    const reached = level.pathLen - Math.max(0, level.exitDist[p.cy][p.cx]);
+    return Math.max(0, Math.min(99, Math.round(reached / level.pathLen * 100)));
+  }
+  function showOverResult() {
+    if (state !== 'over') return;
+    lastResult = { clear: false, pct: overProgress() };
+    $('overKicker').textContent = '💥 ゴン！ ' + (cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1));
+    $('overStats').innerHTML = row('タイム', fmtTime(stats.time)) + row('出口までの道のり', overProgress() + '%') + row('ワープ', stats.warps + ' 回') +
+      row('ほねでセーフ', Math.max(0, stats.bumps - 1 - stats.redo) + ' 回') + (stats.redo ? row('やり直し', stats.redo + ' 回') : '') + row('拾ったほね', stats.got + ' / ' + bones.length);
+    $('hud').hidden = true;
+    showOverlay('over');
+  }
+
+  // ---------- リワード広告のチート：鏡にぶつかったところから、つづきをやり直す（アプリのみ・1 ステージ 3 回まで） ----------
+  const REDO_DELAY = 2.2;   // ぶつかった様子を見届けてから出す
+  const REDO_WAIT = 6;      // 何もしなければ自動でゲームオーバー画面へ
+  const REDO_MAX = 3;
+  const redo = { active: false, busy: false, t: 0 };
+  function showRedo() {
+    if (state !== 'over') return;
+    Object.assign(redo, { active: true, busy: false, t: REDO_WAIT });
+    $('redoWatch').disabled = false;
+    $('redoWatch').textContent = '▶ 広告を見て、つづきから';
+    $('redoNote').textContent = 'ぶつかる前の場所からやり直せます（このステージであと ' + (REDO_MAX - stats.redo) + ' 回）';
+    $('redo').hidden = false;
+  }
+  function closeRedo(showResult) {
+    if (!redo.active) return;
+    redo.active = false;
+    $('redo').hidden = true;
+    if (showResult) showOverResult();
+  }
+  function updateRedo(dt) {
+    if (!redo.active || redo.busy) return;
+    redo.t -= dt;
+    $('redoSkip').textContent = 'あきらめる（' + Math.max(0, Math.ceil(redo.t)) + '）';
+    if (redo.t <= 0) closeRedo(true);
+  }
+  $('redoSkip').addEventListener('click', () => closeRedo(true));
+  $('redoWatch').addEventListener('click', async () => {
+    if (!redo.active || redo.busy) return;
+    redo.busy = true;
+    $('redoWatch').disabled = true;
+    $('redoWatch').textContent = '広告を読み込んでいます…';
+    const result = await Ads.showRewarded();
+    if (!redo.active) return;
+    if (result === 'unavailable') {
+      $('redoNote').textContent = '広告を読み込めませんでした';
+      setTimeout(() => closeRedo(true), 1800);
+      return;
+    }
+    if (result !== 'rewarded') { closeRedo(true); return; }
+    closeRedo(false);
+    revive();
+  });
+  // ぶつかった場所で止まった状態から再開（フリックで向きを変えると走り出す）
+  function revive() {
+    stats.redo++;
+    p.dead = false;
+    p.queued = null;
+    p.halted = true;
+    p.mode = 'wait';
+    state = 'play';
+    Sound.music('play');
+    popup('つづきから！', 'small');
+    hint(isTouch ? '← → フリックで向きを変えよう' : '← → で向きを変えよう', 2.6);
+    updateHud(true);
   }
 
   function warpTo() {
@@ -471,7 +539,9 @@
       $('clearTitle').textContent = cfg.random ? '脱出成功！' : 'STAGE ' + (stageIdx + 1) + ' 脱出成功！';
       $('clearStats').innerHTML =
         row('タイム', fmtTime(stats.time)) + row('ワープ', stats.warps + ' 回') +
-        row('ほねでセーフ', stats.bumps + ' 回') + row('拾ったほね', stats.got + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
+        row('ほねでセーフ', stats.bumps - stats.redo + ' 回') + (stats.redo ? row('やり直し', stats.redo + ' 回') : '') +
+        row('拾ったほね', stats.got + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
+      lastResult = { clear: true, stars };
       $('btnNext').hidden = !(cfg.random || stageIdx + 1 < STAGES.length);
       $('btnNext').textContent = cfg.random ? 'もう一つ' : '次のステージへ';
       $('hud').hidden = true;
@@ -576,6 +646,7 @@
   function toTitle() {
     clearTimeout(clearTimer);
     clearTimeout(overTimer);
+    closeRedo(false);
     state = 'title';
     Sound.music('title');
     $('hud').hidden = true;
@@ -595,7 +666,7 @@
       b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? s.name : '？？？') +
         (unlocked ? '<small>' + s.desc + '</small>' : '') + '</span>' +
         '<span class="st">' + (rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : unlocked ? 'NEW' : '🔒') + '</span>';
-      b.addEventListener('click', () => startStage(i));
+      b.addEventListener('click', () => playStage(i));
       list.appendChild(b);
     });
     const allClear = STAGES.every((_, i) => save.stages[i]);
@@ -603,20 +674,93 @@
     r.className = 'stage-btn random';
     r.disabled = !allClear;
     r.innerHTML = '<span class="no">?</span><span class="nm">' + (allClear ? 'きまぐれ迷宮' : '全ステージクリアで解放') + '</span><span class="st">∞</span>';
-    r.addEventListener('click', () => startStage(STAGES.length));
+    r.addEventListener('click', () => playStage(STAGES.length));
     list.appendChild(r);
   }
 
+  // ---------- 全画面広告（アプリのみ） ----------
+  // プレイを始める・タイトルに戻る・ポーズから再開・結果画面からもう一度 / 次へ、のたびに毎回出す
+  let adBusy = false;
+  async function withInterstitial(next) {
+    if (adBusy) return;
+    if (Ads.available) {
+      adBusy = true;
+      updateBanner();
+      await Ads.showInterstitial(3000);
+      adBusy = false;
+    }
+    next();
+  }
+  const playStage = i => withInterstitial(() => startStage(i));
+  const backToTitle = () => withInterstitial(toTitle);
+  const sameStage = () => (cfg.random ? STAGES.length : stageIdx);
+
   $('btnHowto').addEventListener('click', () => showOverlay('howto'));
-  $('btnHowtoBack').addEventListener('click', () => showOverlay('title'));
-  $('btnResume').addEventListener('click', togglePause);
-  $('btnRetry').addEventListener('click', () => startStage(stageIdx));
-  $('btnQuit').addEventListener('click', toTitle);
-  $('btnNext').addEventListener('click', () => startStage(cfg.random ? STAGES.length : stageIdx + 1));
-  $('btnAgain').addEventListener('click', () => startStage(stageIdx));
-  $('btnTitle').addEventListener('click', toTitle);
-  $('btnOverRetry').addEventListener('click', () => startStage(cfg.random ? STAGES.length : stageIdx));
-  $('btnOverTitle').addEventListener('click', toTitle);
+  $('btnHowtoBack').addEventListener('click', () => withInterstitial(() => showOverlay('title')));
+  $('btnResume').addEventListener('click', () => withInterstitial(togglePause));
+  $('btnRetry').addEventListener('click', () => playStage(stageIdx));
+  $('btnQuit').addEventListener('click', backToTitle);
+  $('btnNext').addEventListener('click', () => playStage(cfg.random ? STAGES.length : stageIdx + 1));
+  $('btnAgain').addEventListener('click', () => playStage(stageIdx));
+  $('btnTitle').addEventListener('click', backToTitle);
+  $('btnOverRetry').addEventListener('click', () => playStage(sameStage()));
+  $('btnOverTitle').addEventListener('click', backToTitle);
+
+  // ---------- バナー広告：タイトル・あそびかた・ポーズ・結果画面だけ（プレイ中は出さない） ----------
+  function updateBanner() {
+    const menu = ['title', 'howto', 'pause', 'clear', 'over'].some(id => !$(id).hidden);
+    Ads.setBanner(menu && !redo.active && !adBusy);
+  }
+
+  // ---------- シェア ----------
+  let lastResult = null;
+  async function shareResult() {
+    if (!lastResult) return;
+    const where = cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1) + '「' + cfg.name + '」';
+    const extra = [stats.warps ? 'ワープ' + stats.warps + '回' : '', stats.redo ? 'やり直し' + stats.redo + '回' : ''].filter(Boolean).join('・');
+    const text = lastResult.clear
+      ? '🐕 ' + where + ' を脱出！ ' + '★'.repeat(lastResult.stars) + '☆'.repeat(3 - lastResult.stars) + ' タイム ' + fmtTime(stats.time) + (extra ? '（' + extra + '）' : '') + '\n#犬も歩けば鏡に当たる'
+      : '💥 ' + where + ' で鏡にゴン！ 出口まであと ' + (100 - lastResult.pct) + '%' + (extra ? '（' + extra + '）' : '') + '\n#犬も歩けば鏡に当たる';
+    const title = '犬も歩けば鏡に当たる';
+    const nativeShare = plugin('Share');
+    if (nativeShare) {
+      try { await nativeShare.share({ title, text, dialogTitle: '結果をシェア' }); } catch (e) { /* キャンセル */ }
+    } else if (navigator.share) {
+      try { await navigator.share({ title, text, url: location.href }); } catch (e) { /* キャンセル */ }
+    } else {
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(location.href), '_blank');
+    }
+  }
+  $('btnShareClear').addEventListener('click', shareResult);
+  $('btnShareOver').addEventListener('click', shareResult);
+
+  // ---------- アプリの動き ----------
+  // 裏に回ったら一時停止して音を止める（広告の表示中は広告側が音を止めている）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (state === 'play' || state === 'ready') togglePause();
+      Sound.suspend();
+    } else if (!Ads.showing) {
+      Sound.resume();
+    }
+  });
+  // Android の戻るボタン：プレイ中はポーズ（ポーズ中なら再開）、タイトル・結果画面ではアプリを終了
+  if (plugin('App')) {
+    plugin('App').addListener('backButton', () => {
+      if (adBusy || Ads.showing) return;
+      if (redo.active) { closeRedo(true); return; }
+      if (state === 'title') {
+        if (!$('howto').hidden) withInterstitial(() => showOverlay('title'));
+        else plugin('App').exitApp();
+      } else if (state === 'paused') withInterstitial(togglePause);
+      else if (state === 'play' || state === 'ready') togglePause();
+      else if ((state === 'clear' && !$('clear').hidden) || (state === 'over' && !$('over').hidden)) plugin('App').exitApp();
+    });
+  }
+  // タイトル画面の下に、バージョン（アプリ版）・プライバシーポリシー・広告の設定（EU など）
+  if (window.APP_VERSION && window.APP_VERSION !== 'dev') $('buildInfo').textContent = window.APP_VERSION;
+  Ads.initDone.then(() => { if (Ads.privacyOptionsRequired) $('adPrivacy').hidden = false; });
+  $('adPrivacyLink').addEventListener('click', e => { e.preventDefault(); Ads.showPrivacyOptions(); });
   function syncSound() {
     const m = Sound.isMuted();
     document.querySelectorAll('.btn-sound').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', m ? '音を出す' : '音を消す'); });
@@ -703,6 +847,9 @@
       if (state !== 'paused') { updateHud(false); drawMinimap(); syncTurnIndicator(); }
     }
 
+    if (state === 'over') updateRedo(dt);
+    updateBanner();
+
     // フラッシュ
     const fl = $('flash');
     if (flashTimer > 0) {
@@ -719,9 +866,11 @@
   toTitle();
   requestAnimationFrame(frame);
 
-  // テスト・デバッグ用
+  // web-only:start
+  // テスト・撮影用（アプリ用のビルドでは取り除く）
   window.__game = {
     get state() { return state; }, get player() { return p; }, get level() { return level; }, get stats() { return stats; },
     startStage, turn, STAGES,
   };
+  // web-only:end
 })();

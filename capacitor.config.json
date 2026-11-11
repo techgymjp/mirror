@@ -1,0 +1,8 @@
+{
+  "appId": "jp.techgym.mirror",
+  "appName": "犬も鏡に",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0b0914"
+  }
+}
