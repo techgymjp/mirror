@@ -19,16 +19,16 @@
     <div class="hud-top">
       <div id="stageName" class="stage-name"></div>
       <div class="stats">
-        <span title="タイム">⏱ <b id="hudTime">0:00.0</b></span>
-        <span title="ワープした回数">🌀 <b id="hudWarp">0</b></span>
-        <span id="hudBoneWrap" class="bone-count" title="持っているほね（1本でゴン1回セーフ）">🦴 <b id="hudBone">0</b></span>
+        <span data-i18n-title="hud.time" title="タイム">⏱ <b id="hudTime">0:00.0</b></span>
+        <span data-i18n-title="hud.warps" title="ワープした回数">🌀 <b id="hudWarp">0</b></span>
+        <span id="hudBoneWrap" class="bone-count" data-i18n-title="hud.bones" title="持っているほね（1本でゴン1回セーフ）">🦴 <b id="hudBone">0</b></span>
       </div>
       <div class="buttons">
-        <button id="btnMap" class="hud-btn" aria-label="地図">🗺</button>
+        <button id="btnMap" class="hud-btn" data-i18n-title="hud.map" aria-label="地図">🗺</button>
         <button id="btnCam" class="hud-btn" aria-label="視点">🐕</button>
         <button class="hud-btn btn-music" aria-label="BGM">♪</button>
         <button class="hud-btn btn-sound" aria-label="音">🔊</button>
-        <button id="btnPause" class="hud-btn" aria-label="一時停止">Ⅱ</button>
+        <button id="btnPause" class="hud-btn" data-i18n-title="hud.pause" aria-label="一時停止">Ⅱ</button>
       </div>
     </div>
     <div id="compass" class="compass"><div id="compassNeedle" class="needle"></div><div id="compassLabel" class="label">北へ</div></div>
@@ -41,63 +41,64 @@
   <section id="title" class="overlay title" hidden>
     <div class="panel title-panel">
       <p class="kicker">🐕 MIRROR MAZE</p>
-      <h1>犬も歩けば<br><span>鏡に当たる</span></h1>
-      <p class="lead">壁はぜんぶ鏡。見えている道は、本物？ 映りこみ？<br>走りつづける犬をフリックで導いて、たった一つの出口へ！<br>鏡に当たったら一発アウト！</p>
+      <h1 data-i18n-html="title.h1">犬も歩けば<br><span>鏡に当たる</span></h1>
+      <p class="lead" data-i18n-html="title.lead">壁はぜんぶ鏡。見えている道は、本物？ 映りこみ？<br>走りつづける犬をフリックで導いて、たった一つの出口へ！<br>鏡に当たったら一発アウト！</p>
       <div id="stageList" class="stage-list"></div>
       <div class="row-btns">
-        <button id="btnHowto" class="btn ghost">遊び方</button>
+        <button id="btnHowto" class="btn ghost" data-i18n="btn.howto">遊び方</button>
         <button class="btn ghost btn-music" aria-label="BGM">♪ BGM</button>
         <button class="btn ghost btn-sound" aria-label="音">🔊</button>
       </div>
+      <p class="lang-sel"><button class="lang-btn" data-lang="ja">日本語</button><button class="lang-btn" data-lang="en">English</button></p>
       <p class="legal">
         <span id="buildInfo"></span>
-        <a href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
-        <span id="adPrivacy" hidden>｜<a href="#" id="adPrivacyLink">広告の設定</a></span>
+        <a href="https://techgym.jp/privacy-policy/" data-i18n-href="url.privacy" target="_blank" rel="noopener" data-i18n="legal.privacy">プライバシーポリシー</a>
+        <span id="adPrivacy" hidden>｜<a href="#" id="adPrivacyLink" data-i18n="legal.adSettings">広告の設定</a></span>
       </p>
     </div>
   </section>
 
   <section id="howto" class="overlay" hidden>
     <div class="panel howto">
-      <h2>遊び方</h2>
+      <h2 data-i18n="howto.title">遊び方</h2>
       <ul>
-        <li><b>あなたは犬。</b>迷路の中を自動で前へ走りつづけます。</li>
-        <li>操作は<b>左右だけ</b>。<b>フリック ← →</b> で曲がる予約。<b>その向きに曲がれる角</b>に着いたら曲がります。早めのフリックでも大丈夫。</li>
-        <li>行き止まりでは、角に着く前に<b>同じ向きへ2回</b>フリックすると後ろを向けます。</li>
+        <li data-i18n-html="howto.1"></li>
+        <li data-i18n-html="howto.2"></li>
+        <li data-i18n-html="howto.3"></li>
         <!-- web-only -->
-        <li>PC は <kbd>←</kbd><kbd>→</kbd> で曲がる、<kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
+        <li data-i18n-html="howto.pc"></li>
         <!-- /web-only -->
-        <li>右上の <b>🗺</b> で地図、<b>Ⅱ</b> で一時停止。</li>
-        <li>右上の <b>🐕 / 👁</b> で視点を切り替え（背後視点 / 犬目線）。</li>
-        <li>全10ステージ。らせん、つづら折り、暗闇、左右反転、加速…ステージごとに仕掛けが変わります。</li>
-        <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れて鏡に当たると「ゴン！」で<b>即ゲームオーバー</b>。</li>
-        <li>鏡には<b>自分の姿</b>も映ります。向こうから犬が来たら…それは自分です。</li>
-        <li><b>本物の出口は一つだけ。</b>ほかの「EXIT」はワープゾーン。<b>行き止まりの突き当たりは必ずワープ</b>で、迷路のどこかへ飛ばされます。</li>
-        <li><b>🦴 ほね</b>を持っていれば、鏡に当たっても<b>1回だけセーフ</b>（ほねを1本使います）。行き止まりに落ちているので、取りに行くかは作戦しだい。</li>
-        <li>ワープとセーフになったゴンが少ないほど ★ が増えます。</li>
+        <li data-i18n-html="howto.4"></li>
+        <li data-i18n-html="howto.5"></li>
+        <li data-i18n-html="howto.6"></li>
+        <li data-i18n-html="howto.7"></li>
+        <li data-i18n-html="howto.8"></li>
+        <li data-i18n-html="howto.9"></li>
+        <li data-i18n-html="howto.10"></li>
+        <li data-i18n-html="howto.11"></li>
       </ul>
-      <button id="btnHowtoBack" class="btn">もどる</button>
+      <button id="btnHowtoBack" class="btn" data-i18n="btn.back">もどる</button>
     </div>
   </section>
 
   <section id="pause" class="overlay" hidden>
     <div class="panel small">
-      <h2>ひと休み</h2>
-      <button id="btnResume" class="btn">つづける</button>
-      <button id="btnRetry" class="btn ghost">やり直す</button>
-      <button id="btnQuit" class="btn ghost">タイトルへ</button>
+      <h2 data-i18n="pause.title">ひと休み</h2>
+      <button id="btnResume" class="btn" data-i18n="btn.resume">つづける</button>
+      <button id="btnRetry" class="btn ghost" data-i18n="btn.restart">やり直す</button>
+      <button id="btnQuit" class="btn ghost" data-i18n="btn.toTitle">タイトルへ</button>
     </div>
   </section>
 
   <section id="over" class="overlay" hidden>
     <div class="panel small">
       <p id="overKicker" class="kicker">💥 ゴン！</p>
-      <h2>ゲームオーバー</h2>
-      <p class="over-msg">鏡にぶつかってしまった…<br>次は曲がり角を見きわめよう！</p>
+      <h2 data-i18n="over.title">ゲームオーバー</h2>
+      <p class="over-msg" data-i18n-html="over.msg">鏡にぶつかってしまった…<br>次は曲がり角を見きわめよう！</p>
       <div id="overStats" class="clear-stats"></div>
-      <button id="btnOverRetry" class="btn">もう一度</button>
-      <button id="btnShareOver" class="btn ghost">シェア</button>
-      <button id="btnOverTitle" class="btn ghost">タイトルへ</button>
+      <button id="btnOverRetry" class="btn" data-i18n="btn.again">もう一度</button>
+      <button id="btnShareOver" class="btn ghost" data-i18n="btn.share">シェア</button>
+      <button id="btnOverTitle" class="btn ghost" data-i18n="btn.toTitle">タイトルへ</button>
     </div>
   </section>
 
@@ -110,20 +111,21 @@
 
   <section id="clear" class="overlay" hidden>
     <div class="panel small">
-      <p class="kicker">🐾 ワン！</p>
+      <p class="kicker" data-i18n="clear.kicker">🐾 ワン！</p>
       <h2 id="clearTitle">脱出成功！</h2>
       <div id="clearStars" class="stars">★★★</div>
       <div id="clearStats" class="clear-stats"></div>
       <button id="btnNext" class="btn">次のステージへ</button>
-      <button id="btnAgain" class="btn ghost">もう一度</button>
-      <button id="btnShareClear" class="btn ghost">シェア</button>
-      <button id="btnTitle" class="btn ghost">タイトルへ</button>
+      <button id="btnAgain" class="btn ghost" data-i18n="btn.again">もう一度</button>
+      <button id="btnShareClear" class="btn ghost" data-i18n="btn.share">シェア</button>
+      <button id="btnTitle" class="btn ghost" data-i18n="btn.toTitle">タイトルへ</button>
     </div>
   </section>
 </div>
 
 <script src="js/ads-config.js"></script>
 <script src="js/build-info.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/maze.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/audio.js"></script>

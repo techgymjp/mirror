@@ -20,6 +20,7 @@ const gsrc = fs.readFileSync(path.join(ROOT, 'js/game.js'), 'utf8');
 const pick = (start, end) => gsrc.slice(gsrc.indexOf(start), gsrc.indexOf(end, gsrc.indexOf(start)));
 const defs = pick('  const COURSES = {', '  function randomCfg()');
 const { COURSES, STAGES } = new Function('Maze', defs + '; return { COURSES, STAGES };')(Maze);
+const I18N_SRC = fs.readFileSync(path.join(ROOT, 'js/i18n.js'), 'utf8'); // ステージ名（日本語）を表示に使う
 const num = name => Number(new RegExp(name + ' = ([0-9.]+)').exec(gsrc)[1]);
 const TURN_DUR = num('TURN_DUR'), BUMP_DUR = num('BUMP_DUR'), STUN = num('STUN'), WARP_DUR = num('WARP_DUR');
 
@@ -170,7 +171,7 @@ if (process.argv.includes('--tuned')) {
 const out = [];
 STAGES.forEach((cfg, i) => {
   const lv = buildLevel(cfg);
-  const row = { stage: i + 1, name: cfg.name };
+  const row = { stage: i + 1, name: (new RegExp("'stage\\." + (i + 1) + "\\.name': '([^']*)'").exec(I18N_SRC) || [])[1] || 'STAGE ' + (i + 1) };
   for (const [name, sk] of Object.entries(SKILLS)) {
     const rs = Array.from({ length: N }, () => run(cfg, lv, sk, rnd, RULE));
     const clears = rs.filter(r => r.result === 'clear');

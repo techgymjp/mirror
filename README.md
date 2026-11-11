@@ -53,6 +53,7 @@
   - EU など同意が必要な地域ではタイトル画面に「広告の設定」
   - 本番の広告ユニット ID は `js/ads.js`、AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml`（届くまではテスト用）
 - タイトル画面にバージョン（ビルド番号）とプライバシーポリシーへのリンク
+- 日本語・英語に対応（端末の言語で自動選択、タイトル画面で切り替え。文言は `js/i18n.js`）
 - アイコンと起動画面: `python3 tools/render_icon.py` で `appicon/` に元画像を作り、`npx @capacitor/assets generate --android --assetPath appicon` で生成
 
 ビルドは GitHub Actions（`.github/workflows/android.yml`）で行います。

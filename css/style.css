@@ -156,3 +156,8 @@ kbd { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 5px; 
 
 /* アプリでは画面下にバナー広告が出るので、メニューの下に余白をとる */
 body.native .overlay { padding-bottom: 72px; }
+
+/* 言語切り替え */
+.lang-sel { margin: 12px 0 0; display: flex; gap: 8px; justify-content: center; }
+.lang-btn { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); font-size: 13px; cursor: pointer; }
+.lang-btn.on { background: rgba(143,179,255,.2); color: var(--text); border-color: rgba(143,179,255,.6); }

@@ -8,7 +8,7 @@
   const plugin = name => (NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins[name] : null);
   if (NATIVE) document.body.classList.add('native');
   const DIRS = Maze.DIRS;
-  const DIR_NAMES = ['東', '南', '西', '北'];
+  const t = I18N.t;
   const CAM_BACK = 0.42, CAM_Z_BEHIND = 0.56;
   const TURN_DUR = 0.11, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
   const SAVE_KEY = 'inu-kagami-v2';
@@ -52,34 +52,37 @@
   //   speedUp: 時間とともに加速  lightning: 暗闇＋稲妻  mirrorWorld: 画面が左右反転
   //   compass: 方角表示  warpHint: ワープ扉の紫がかり（0 で本物と同じ見た目）
   const STAGES = [
-    { name: 'はじめての鏡', desc: 'まずは鏡の迷路に慣れよう', maze: { w: 4, h: 4, loops: 1, seed: 509 }, bones: 2,
+    { maze: { w: 4, h: 4, loops: 1, seed: 509 }, bones: 2,
       tint: 0.26, tintColor: 'rgb(70,110,190)', fog: 11, speed: 2.4, compass: true, warpHint: 0.35 },
-    { name: 'まっすぐ廊下', desc: '長い廊下の先に急カーブ。曲がり遅れに注意', maze: { w: 6, h: 4, straight: 0.9, loops: 1, seed: 3624 }, bones: 2,
+    { maze: { w: 6, h: 4, straight: 0.9, loops: 1, seed: 3624 }, bones: 2,
       tint: 0.22, tintColor: 'rgb(50,160,170)', sky: '#0f2228', floor: '#3f5a5c', fog: 12, speed: 2.7, compass: true, warpHint: 0.3 },
-    { name: 'らせん回廊', desc: '中心から外へ、ぐるぐる右回り。わき道の扉はワープ', maze: { course: 'spiral' },
+    { maze: { course: 'spiral' },
       tint: 0.2, tintColor: 'rgb(140,90,210)', sky: '#1d1238', floor: '#4f3a66', fog: 12, speed: 3.0, compass: true, warpHint: 0.25 },
-    { name: 'つづら折り', desc: '右・右・左・左のリズム。近道もあるよ', maze: { course: 'zigzag' },
+    { maze: { course: 'zigzag' },
       tint: 0.18, tintColor: 'rgb(70,170,110)', sky: '#0f2418', floor: '#3c5a44', fog: 12, speed: 3.4, compass: true, warpHint: 0.2 },
-    { name: '鏡の大広間', desc: '広い部屋では映りこみが何倍にも。どこでも曲がれる', maze: { w: 6, h: 6, loops: 3, rooms: 2, seed: 2384 }, bones: 3,
+    { maze: { w: 6, h: 6, loops: 3, rooms: 2, seed: 2384 }, bones: 3,
       tint: 0.15, tintColor: 'rgb(200,160,80)', sky: '#261d0e', floor: '#5e4c30', fog: 13, speed: 3.1, compass: true, warpHint: 0.1 },
-    { name: '闇の合わせ鏡', desc: 'ほぼ真っ暗。ときどき光る稲妻で先を見よう', maze: { w: 6, h: 6, loops: 4, seed: 5012 }, bones: 3,
+    { maze: { w: 6, h: 6, loops: 4, seed: 5012 }, bones: 3,
       tint: 0.12, tintColor: 'rgb(60,70,170)', sky: '#05050c', floor: '#1a1826', fog: 3.2, lightning: true, speed: 2.8, compass: false, warpHint: 0 },
-    { name: '横長回廊', desc: 'くねくね曲がる細長い迷路', maze: { w: 11, h: 4, twist: 0.7, loops: 4, seed: 1610 }, bones: 3,
+    { maze: { w: 11, h: 4, twist: 0.7, loops: 4, seed: 1610 }, bones: 3,
       tint: 0.11, tintColor: 'rgb(200,90,100)', sky: '#250e14', floor: '#5c3640', fog: 13, speed: 3.5, compass: false, warpHint: 0 },
-    { name: '鏡の国', desc: '画面が左右反転！見た目と逆にフリック', maze: { w: 6, h: 6, loops: 5, seed: 409 }, bones: 3,
+    { maze: { w: 6, h: 6, loops: 5, seed: 409 }, bones: 3,
       tint: 0.1, tintColor: 'rgb(210,120,190)', sky: '#24102a', floor: '#5a3a5e', fog: 13, mirrorWorld: true, speed: 3.1, compass: false, warpHint: 0 },
-    { name: '加速する迷宮', desc: '時間がたつほど犬が速くなる。迷っている暇はない', maze: { w: 7, h: 7, loops: 6, seed: 7124 }, bones: 4,
+    { maze: { w: 7, h: 7, loops: 6, seed: 7124 }, bones: 4,
       tint: 0.08, tintColor: 'rgb(220,130,60)', sky: '#26140a', floor: '#5e4030', fog: 14, speed: 3.0, speedUp: { per: 25, max: 1.8 }, compass: false, warpHint: 0 },
-    { name: '鏡の大迷宮', desc: 'これまでの試練の集大成', maze: { w: 9, h: 9, loops: 10, rooms: 1, seed: 4667 }, bones: 5,
+    { maze: { w: 9, h: 9, loops: 10, rooms: 1, seed: 4667 }, bones: 5,
       tint: 0.05, tintColor: 'rgb(150,160,210)', fog: 15, speed: 3.6, speedUp: { per: 60, max: 1.35 }, compass: false, warpHint: 0 },
   ];
   function randomCfg() {
     const seed = (Math.random() * 1e9) | 0;
     const r = Maze.mulberry32(seed);
     const n = 6 + Math.floor(r() * 3);
-    return { name: 'きまぐれ迷宮', desc: '毎回ちがう迷路', maze: { w: n, h: n, loops: 5 + Math.floor(r() * 5), rooms: Math.floor(r() * 2), seed }, bones: 4,
+    return { maze: { w: n, h: n, loops: 5 + Math.floor(r() * 5), rooms: Math.floor(r() * 2), seed }, bones: 4,
       tint: 0.08, fog: 14, speed: 3.8, compass: false, warpHint: 0, random: true };
   }
+  // ステージの名前と説明は表示言語に合わせて辞書から
+  const stageName = c => t(c.random ? 'stage.random.name' : 'stage.' + (STAGES.indexOf(c) + 1) + '.name');
+  const stageDesc = c => t(c.random ? 'stage.random.desc' : 'stage.' + (STAGES.indexOf(c) + 1) + '.desc');
   function buildLevel(c) {
     if (c.maze.course) return Maze.fromAscii(COURSES[c.maze.course], 7);
     return Maze.generate(Object.assign({ bones: c.bones }, c.maze));
@@ -142,13 +145,13 @@
     enteredWarps = new Set();
     showOverlay(null);
     $('hud').hidden = false;
-    $('stageName').textContent = (cfg.random ? '' : 'STAGE ' + (i + 1) + '　') + cfg.name;
+    $('stageName').textContent = cfg.random ? stageName(cfg) : t('hud.stage', { n: i + 1, name: stageName(cfg) });
     $('compass').hidden = !cfg.compass;
     state = 'ready';
     Sound.music('play');
     readyTimer = 1.2;
-    popup('よーい…', 'ready');
-    hint(cfg.desc + (i === 0 ? (isTouch ? '　← → フリックで次の角を曲がる' : '　← → キーで次の角を曲がる') : ''), 4);
+    popup(t('pop.ready'), 'ready');
+    hint(stageDesc(cfg) + (i === 0 ? ' — ' + t(isTouch ? 'hint.firstTouch' : 'hint.firstKeys') : ''), 4);
     updateHud(true);
   }
 
@@ -212,8 +215,8 @@
   function syncCam() {
     const b = $('btnCam');
     b.textContent = camBehind ? '🐕' : '👁';
-    b.setAttribute('aria-label', camBehind ? '犬目線に切り替え' : '背後視点に切り替え');
-    b.title = camBehind ? '背後視点（タップで犬目線）' : '犬目線（タップで背後視点）';
+    b.setAttribute('aria-label', t(camBehind ? 'cam.toEye' : 'cam.toBehind'));
+    b.title = t(camBehind ? 'cam.titleBehind' : 'cam.titleEye');
   }
   $('btnCam').addEventListener('click', () => {
     camBehind = !camBehind;
@@ -272,7 +275,7 @@
     Sound.step();
     for (const b of bones) {
       if (!b.taken && b.cx === p.cx && b.cy === p.cy) {
-        b.taken = true; stats.bones++; stats.got++; Sound.bone(); popup('ほねゲット！ ゴン1回セーフ', 'small'); bumpHudBone(); updateHud(true);
+        b.taken = true; stats.bones++; stats.got++; Sound.bone(); popup(t('pop.bone'), 'small'); bumpHudBone(); updateHud(true);
       }
     }
   }
@@ -280,7 +283,7 @@
   function doBump() {
     stats.bumps++;
     Sound.bump();
-    popup('ゴン！', 'bump');
+    popup(t('pop.bonk'), 'bump');
     view.classList.remove('shake'); void view.offsetWidth; view.classList.add('shake');
     if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) { /* noop */ } }
     flash('rgba(200,220,255,0.5)', 0.18);
@@ -293,7 +296,7 @@
       setTimeout(() => {
         if (state !== 'play') return;
         Sound.saved();
-        popup('ほねでセーフ！', 'save');
+        popup(t('pop.saved'), 'save');
         flash('rgba(255,236,190,0.6)', 0.35);
       }, 380);
       return;
@@ -313,7 +316,7 @@
     state = 'over';
     Sound.music('calm');
     Sound.gameover();
-    popup('ゲームオーバー', 'ready');
+    popup(t('pop.gameover'), 'ready');
     // アプリでは、ぶつかった様子を見届けてから「広告を見てつづきから」を提案する
     if (Ads.canReward && stats.redo < REDO_MAX) overTimer = setTimeout(showRedo, REDO_DELAY * 1000);
     else overTimer = setTimeout(showOverResult, 1400);
@@ -325,9 +328,9 @@
   function showOverResult() {
     if (state !== 'over') return;
     lastResult = { clear: false, pct: overProgress() };
-    $('overKicker').textContent = '💥 ゴン！ ' + (cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1));
-    $('overStats').innerHTML = row('タイム', fmtTime(stats.time)) + row('出口までの道のり', overProgress() + '%') + row('ワープ', stats.warps + ' 回') +
-      row('ほねでセーフ', Math.max(0, stats.bumps - 1 - stats.redo) + ' 回') + (stats.redo ? row('やり直し', stats.redo + ' 回') : '') + row('拾ったほね', stats.got + ' / ' + bones.length);
+    $('overKicker').textContent = t('over.kicker', { where: cfg.random ? stageName(cfg) : 'STAGE ' + (stageIdx + 1) });
+    $('overStats').innerHTML = row(t('row.time'), fmtTime(stats.time)) + row(t('row.progress'), overProgress() + '%') + row(t('row.warps'), times(stats.warps)) +
+      row(t('row.saves'), times(Math.max(0, stats.bumps - 1 - stats.redo))) + (stats.redo ? row(t('row.redo'), times(stats.redo)) : '') + row(t('row.bones'), stats.got + ' / ' + bones.length);
     $('hud').hidden = true;
     showOverlay('over');
   }
@@ -341,8 +344,8 @@
     if (state !== 'over') return;
     Object.assign(redo, { active: true, busy: false, t: REDO_WAIT });
     $('redoWatch').disabled = false;
-    $('redoWatch').textContent = '▶ 広告を見て、つづきから';
-    $('redoNote').textContent = 'ぶつかる前の場所からやり直せます（このステージであと ' + (REDO_MAX - stats.redo) + ' 回）';
+    $('redoWatch').textContent = t('redo.watch');
+    $('redoNote').textContent = t('redo.note', { n: REDO_MAX - stats.redo });
     $('redo').hidden = false;
   }
   function closeRedo(showResult) {
@@ -354,7 +357,7 @@
   function updateRedo(dt) {
     if (!redo.active || redo.busy) return;
     redo.t -= dt;
-    $('redoSkip').textContent = 'あきらめる（' + Math.max(0, Math.ceil(redo.t)) + '）';
+    $('redoSkip').textContent = t('redo.skip', { s: Math.max(0, Math.ceil(redo.t)) });
     if (redo.t <= 0) closeRedo(true);
   }
   $('redoSkip').addEventListener('click', () => closeRedo(true));
@@ -362,11 +365,11 @@
     if (!redo.active || redo.busy) return;
     redo.busy = true;
     $('redoWatch').disabled = true;
-    $('redoWatch').textContent = '広告を読み込んでいます…';
+    $('redoWatch').textContent = t('redo.loading');
     const result = await Ads.showRewarded();
     if (!redo.active) return;
     if (result === 'unavailable') {
-      $('redoNote').textContent = '広告を読み込めませんでした';
+      $('redoNote').textContent = t('redo.fail');
       setTimeout(() => closeRedo(true), 1800);
       return;
     }
@@ -383,8 +386,8 @@
     p.mode = 'wait';
     state = 'play';
     Sound.music('play');
-    popup('つづきから！', 'small');
-    hint(isTouch ? '← → フリックで向きを変えよう' : '← → で向きを変えよう', 2.6);
+    popup(t('pop.continue'), 'small');
+    hint(t(isTouch ? 'hint.turnTouch' : 'hint.turnKeys'), 2.6);
     updateHud(true);
   }
 
@@ -484,7 +487,7 @@
         p.t += dt;
         if (p.t < STUN) return;
         p.mode = 'wait';
-        if (p.queued === null) hint(isTouch ? '← → フリックで向きを変えよう' : '← → で向きを変えよう', 2.4);
+        if (p.queued === null) hint(t(isTouch ? 'hint.turnTouch' : 'hint.turnKeys'), 2.4);
         continue;
       }
       if (p.mode === 'exit' || p.mode === 'warpIn') {
@@ -497,7 +500,7 @@
         if (p.mode === 'exit') { clearStage(); return; }
         p.mode = 'warp'; p.t = 0;
         Sound.warp();
-        popup('ワープ！？', 'warp');
+        popup(t('pop.warp'), 'warp');
         flash('rgba(170,80,255,1)', WARP_DUR);
         return;
       }
@@ -507,7 +510,7 @@
         if (before < WARP_DUR * 0.45 && p.t >= WARP_DUR * 0.45) warpTo();
         if (p.t < WARP_DUR) return;
         p.mode = 'wait';
-        popup('ここはどこ…？', 'small');
+        popup(t('pop.where'), 'small');
         return;
       }
       return;
@@ -519,7 +522,7 @@
     state = 'clear';
     Sound.music('calm');
     Sound.clear();
-    popup('ワン！', 'bark');
+    popup(t('pop.bark'), 'bark');
     flash('rgba(255,240,200,1)', 0.8);
     // ワープとゴン（ほねで助かった回数）が少ないほど ★ が多い
     const miss = stats.warps + stats.bumps;
@@ -536,18 +539,19 @@
     clearTimer = setTimeout(() => {
       if (state !== 'clear') return;
       $('clearStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-      $('clearTitle').textContent = cfg.random ? '脱出成功！' : 'STAGE ' + (stageIdx + 1) + ' 脱出成功！';
+      $('clearTitle').textContent = cfg.random ? t('clear.title') : t('clear.titleStage', { n: stageIdx + 1 });
       $('clearStats').innerHTML =
-        row('タイム', fmtTime(stats.time)) + row('ワープ', stats.warps + ' 回') +
-        row('ほねでセーフ', stats.bumps - stats.redo + ' 回') + (stats.redo ? row('やり直し', stats.redo + ' 回') : '') +
-        row('拾ったほね', stats.got + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
+        row(t('row.time'), fmtTime(stats.time)) + row(t('row.warps'), times(stats.warps)) +
+        row(t('row.saves'), times(stats.bumps - stats.redo)) + (stats.redo ? row(t('row.redo'), times(stats.redo)) : '') +
+        row(t('row.bones'), stats.got + ' / ' + bones.length) + (best ? '<p class="best">' + t('clear.best') + '</p>' : '');
       lastResult = { clear: true, stars };
       $('btnNext').hidden = !(cfg.random || stageIdx + 1 < STAGES.length);
-      $('btnNext').textContent = cfg.random ? 'もう一つ' : '次のステージへ';
+      $('btnNext').textContent = t(cfg.random ? 'btn.another' : 'btn.next');
       $('hud').hidden = true;
       showOverlay('clear');
     }, 1300);
   }
+  const times = n => t('unit.times', { n });
   function row(k, v) { return '<div class="row"><span>' + k + '</span><b>' + v + '</b></div>'; }
   function fmtTime(t) { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
 
@@ -594,7 +598,7 @@
     }
     if (cfg && cfg.compass) {
       $('compassNeedle').style.transform = 'rotate(' + (-(p.ang * 180 / Math.PI) - 90) + 'deg)';
-      $('compassLabel').textContent = DIR_NAMES[((Math.round(p.ang / (Math.PI / 2)) % 4) + 4) % 4] + 'へ';
+      $('compassLabel').textContent = t('compass.to', { d: t('dir.' + (((Math.round(p.ang / (Math.PI / 2)) % 4) + 4) % 4)) });
     }
   }
 
@@ -663,9 +667,9 @@
       const b = document.createElement('button');
       b.className = 'stage-btn';
       b.disabled = !unlocked;
-      b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? s.name : '？？？') +
-        (unlocked ? '<small>' + s.desc + '</small>' : '') + '</span>' +
-        '<span class="st">' + (rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : unlocked ? 'NEW' : '🔒') + '</span>';
+      b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? stageName(s) : t('stage.locked')) +
+        (unlocked ? '<small>' + stageDesc(s) + '</small>' : '') + '</span>' +
+        '<span class="st">' + (rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : unlocked ? t('stage.new') : '🔒') + '</span>';
       b.addEventListener('click', () => playStage(i));
       list.appendChild(b);
     });
@@ -673,7 +677,7 @@
     const r = document.createElement('button');
     r.className = 'stage-btn random';
     r.disabled = !allClear;
-    r.innerHTML = '<span class="no">?</span><span class="nm">' + (allClear ? 'きまぐれ迷宮' : '全ステージクリアで解放') + '</span><span class="st">∞</span>';
+    r.innerHTML = '<span class="no">?</span><span class="nm">' + (allClear ? t('stage.random.name') : t('stage.unlockRandom')) + '</span><span class="st">∞</span>';
     r.addEventListener('click', () => playStage(STAGES.length));
     list.appendChild(r);
   }
@@ -716,15 +720,16 @@
   let lastResult = null;
   async function shareResult() {
     if (!lastResult) return;
-    const where = cfg.random ? cfg.name : 'STAGE ' + (stageIdx + 1) + '「' + cfg.name + '」';
-    const extra = [stats.warps ? 'ワープ' + stats.warps + '回' : '', stats.redo ? 'やり直し' + stats.redo + '回' : ''].filter(Boolean).join('・');
+    const where = cfg.random ? stageName(cfg) : t('share.where', { n: stageIdx + 1, name: stageName(cfg) });
+    const parts = [stats.warps ? t('share.warps', { n: stats.warps }) : '', stats.redo ? t('share.redo', { n: stats.redo }) : ''].filter(Boolean);
+    const extra = parts.length ? t('share.extra', { x: parts.join(t('share.sep')) }) : '';
     const text = lastResult.clear
-      ? '🐕 ' + where + ' を脱出！ ' + '★'.repeat(lastResult.stars) + '☆'.repeat(3 - lastResult.stars) + ' タイム ' + fmtTime(stats.time) + (extra ? '（' + extra + '）' : '') + '\n#犬も歩けば鏡に当たる'
-      : '💥 ' + where + ' で鏡にゴン！ 出口まであと ' + (100 - lastResult.pct) + '%' + (extra ? '（' + extra + '）' : '') + '\n#犬も歩けば鏡に当たる';
-    const title = '犬も歩けば鏡に当たる';
+      ? t('share.clear', { where, stars: '★'.repeat(lastResult.stars) + '☆'.repeat(3 - lastResult.stars), time: fmtTime(stats.time), extra })
+      : t('share.over', { where, pct: 100 - lastResult.pct, extra });
+    const title = t('share.title');
     const nativeShare = plugin('Share');
     if (nativeShare) {
-      try { await nativeShare.share({ title, text, dialogTitle: '結果をシェア' }); } catch (e) { /* キャンセル */ }
+      try { await nativeShare.share({ title, text, dialogTitle: t('share.dialog') }); } catch (e) { /* キャンセル */ }
     } else if (navigator.share) {
       try { await navigator.share({ title, text, url: location.href }); } catch (e) { /* キャンセル */ }
     } else {
@@ -763,9 +768,9 @@
   $('adPrivacyLink').addEventListener('click', e => { e.preventDefault(); Ads.showPrivacyOptions(); });
   function syncSound() {
     const m = Sound.isMuted();
-    document.querySelectorAll('.btn-sound').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', m ? '音を出す' : '音を消す'); });
+    document.querySelectorAll('.btn-sound').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', t(m ? 'snd.on' : 'snd.off')); });
     const on = Sound.isMusicOn();
-    document.querySelectorAll('.btn-music').forEach(b => { b.classList.toggle('off', !on); b.setAttribute('aria-label', on ? 'BGMを止める' : 'BGMを流す'); });
+    document.querySelectorAll('.btn-music').forEach(b => { b.classList.toggle('off', !on); b.setAttribute('aria-label', t(on ? 'bgm.off' : 'bgm.on')); });
   }
   document.querySelectorAll('.btn-music').forEach(b => b.addEventListener('click', () => {
     Sound.setMusicOn(!Sound.isMusicOn());
@@ -818,14 +823,14 @@
       // 結果画面の表示中は 3D の再描画を止めて、音の処理に余裕をもたせる
       if (state === 'ready') {
         readyTimer -= dt;
-        if (readyTimer <= 0) { state = 'play'; p.running = true; popup('ワン！', 'go'); Sound.bark(); }
+        if (readyTimer <= 0) { state = 'play'; p.running = true; popup(t('pop.go'), 'go'); Sound.bark(); }
       }
       if (state === 'play') {
         stats.time += dt;
         updateLightning(dt);
         if (cfg.speedUp) {
           const lv = Math.floor(curSpeed() / cfg.speed * 4);
-          if (lv > speedLevel * 4 && lv > 4) { speedLevel = lv / 4; popup('スピードアップ！', 'small'); }
+          if (lv > speedLevel * 4 && lv > 4) { speedLevel = lv / 4; popup(t('pop.speedUp'), 'small'); }
         }
         updatePlayer(dt);
       } else if (state === 'clear' || state === 'over') {
@@ -861,6 +866,11 @@
 
     requestAnimationFrame(frame);
   }
+
+  // 表示言語：タイトル画面のボタンで切り替え
+  document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => I18N.setLang(b.dataset.lang)));
+  I18N.onChange(() => { buildStageList(); syncSound(); syncCam(); });
+  I18N.apply();
 
   resize();
   toTitle();
