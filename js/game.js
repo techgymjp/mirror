@@ -1,0 +1,553 @@
+/* 犬も歩けば鏡に当たる — ゲーム本体 */
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const DIRS = Maze.DIRS;
+  const DIR_NAMES = ['東', '南', '西', '北'];
+  const TURN_DUR = 0.14, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
+  const SAVE_KEY = 'inu-kagami-v1';
+
+  const STAGES = [
+    { name: 'はじめての鏡', cells: 4, loops: 0, bones: 2, warps: 1, tint: 0.26, fog: 11, speed: 2.1, compass: true, warpHint: 0.35, seed: 1203 },
+    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, warps: 2, tint: 0.18, fog: 12, speed: 2.4, compass: true, warpHint: 0.22, seed: 2207 },
+    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, warps: 3, tint: 0.13, fog: 13, speed: 2.7, compass: true, warpHint: 0.1, seed: 3301 },
+    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, warps: 4, tint: 0.09, fog: 14, speed: 3.0, compass: false, warpHint: 0, seed: 4409 },
+    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, warps: 6, tint: 0.06, fog: 15, speed: 3.3, compass: false, warpHint: 0, seed: 5501 },
+  ];
+  function randomCfg() {
+    const seed = (Math.random() * 1e9) | 0;
+    const r = Maze.mulberry32(seed);
+    return { name: 'きまぐれ迷宮', cells: 6 + Math.floor(r() * 3), loops: 5 + Math.floor(r() * 5), bones: 4, warps: 4 + Math.floor(r() * 3), tint: 0.08, fog: 14, speed: 3.0, compass: false, warpHint: 0, seed, random: true };
+  }
+
+  // ---------- 状態 ----------
+  const canvas = $('screen');
+  const view = $('view');
+  const renderer = new Renderer(canvas);
+  let state = 'title';   // title | ready | play | paused | clear
+  let stageIdx = 0, cfg = null, level = null, p = null, stats = null;
+  let bones = [], visited = null, enteredWarps = null;
+  let showMap = true, sniffTimer = 0, readyTimer = 0, flashTimer = 0, flashColor = '#fff';
+  let demo = null, clock = 0;
+  let save = loadSave();
+
+  function loadSave() {
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || { stages: {} }; } catch (e) { return { stages: {} }; }
+  }
+  function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* 保存できなくても遊べる */ } }
+
+  // ---------- 画面サイズ ----------
+  function resize() {
+    const w = view.clientWidth || window.innerWidth, h = view.clientHeight || window.innerHeight;
+    const H = 240;
+    const W = Math.max(180, Math.min(560, Math.round(H * w / h)));
+    renderer.resize(W, H);
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- ステージ開始 ----------
+  let clearTimer = null;
+  function startStage(i) {
+    Sound.unlock();
+    clearTimeout(clearTimer);
+    stageIdx = i;
+    cfg = i < STAGES.length ? STAGES[i] : randomCfg();
+    level = Maze.generate(cfg.cells, cfg.loops, cfg.bones, cfg.seed, cfg.warps);
+    renderer.setLevel(level, cfg);
+    const s = level.start;
+    p = {
+      cx: s.x, cy: s.y, dir: s.dir, x: s.x + 0.5, y: s.y + 0.5, ang: s.dir * Math.PI / 2,
+      mode: 'wait', t: 0, running: false, queued: null, walk: 0, from: null, to: null,
+    };
+    bones = level.bones.map(b => ({ x: b.x + 0.5, y: b.y + 0.5, cx: b.x, cy: b.y, taken: false }));
+    stats = { time: 0, bumps: 0, warps: 0, bones: 0, sniffs: 3 };
+    visited = new Set([s.x + ',' + s.y]);
+    enteredWarps = new Set();
+    sniffTimer = 0;
+    showOverlay(null);
+    $('hud').hidden = false;
+    $('stageName').textContent = (cfg.random ? '' : 'STAGE ' + (i + 1) + '　') + cfg.name;
+    $('compass').hidden = !cfg.compass;
+    state = 'ready';
+    readyTimer = 1.6;
+    popup('よーい…', 'ready');
+    hint(isTouch ? '← → フリックで曲がる　↓でUターン　タップでおすわり' : '← → で曲がる　↓ でUターン　スペースでおすわり');
+    updateHud(true);
+  }
+
+  // ---------- 入力 ----------
+  function turn(d) {
+    if (state !== 'play') { if (state === 'ready') p.queued = d; return; }
+    p.queued = d;
+    p.running = true;
+    Sound.turn();
+    showTurnIndicator(d);
+  }
+  function go() { if (state === 'play') { p.running = true; } }
+  function toggleSit() {
+    if (state !== 'play') return;
+    p.running = !p.running;
+    popup(p.running ? 'タッ！' : 'おすわり', 'small');
+  }
+  function sniff() {
+    if (state !== 'play' || stats.sniffs <= 0 || sniffTimer > 0) return;
+    stats.sniffs--;
+    sniffTimer = 3.2;
+    Sound.sniff();
+    updateHud(true);
+  }
+  function toggleMap() { showMap = !showMap; $('minimap').hidden = !showMap; }
+
+  const KEYMAP = {
+    ArrowLeft: () => turn(-1), a: () => turn(-1), A: () => turn(-1),
+    ArrowRight: () => turn(1), d: () => turn(1), D: () => turn(1),
+    ArrowDown: () => turn(2), s: () => turn(2), S: () => turn(2),
+    ArrowUp: go, w: go, W: go,
+    ' ': toggleSit, k: sniff, K: sniff, m: toggleMap, M: toggleMap,
+  };
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { togglePause(); e.preventDefault(); return; }
+    if (state === 'title' && (e.key === 'Enter')) { startStage(firstUncleared()); return; }
+    const f = KEYMAP[e.key];
+    if (f && (state === 'play' || state === 'ready')) { if (!e.repeat) f(); e.preventDefault(); }
+  });
+
+  // フリック（スワイプ）検出
+  const isTouch = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  let ptr = null;
+  view.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    Sound.unlock();
+    ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), fired: false };
+  });
+  view.addEventListener('pointermove', e => {
+    if (!ptr || ptr.id !== e.pointerId || ptr.fired) return;
+    const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
+    const th = Math.max(28, Math.min(view.clientWidth, view.clientHeight) * 0.06);
+    if (Math.hypot(dx, dy) < th) return;
+    ptr.fired = true;
+    if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 1 : -1);
+    else if (dy > 0) turn(2);
+    else go();
+  });
+  function endPtr(e) {
+    if (!ptr || ptr.id !== e.pointerId) return;
+    if (!ptr.fired && performance.now() - ptr.t < 350 && e.type === 'pointerup') toggleSit();
+    ptr = null;
+  }
+  view.addEventListener('pointerup', endPtr);
+  view.addEventListener('pointercancel', endPtr);
+  // iOS のスクロール・ズームを防ぐ
+  view.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  $('btnSniff').addEventListener('click', sniff);
+  $('btnMap').addEventListener('click', toggleMap);
+  $('btnPause').addEventListener('click', togglePause);
+
+  // ---------- 動き ----------
+  function cellAt(x, y) {
+    if (x < 0 || y < 0 || x >= level.W || y >= level.H) return 1;
+    return level.map[y][x];
+  }
+
+  function decide() {
+    if (p.queued !== null) {
+      const d = p.queued; p.queued = null;
+      p.mode = 'turn'; p.t = 0;
+      p.fromAng = p.ang; p.toAng = p.ang + (d === 2 ? Math.PI : d * Math.PI / 2);
+      p.dir = (p.dir + (d === 2 ? 2 : d) + 4) % 4;
+      return;
+    }
+    if (!p.running) { p.mode = 'wait'; return; }
+    const [dx, dy] = DIRS[p.dir];
+    const nx = p.cx + dx, ny = p.cy + dy;
+    const c = cellAt(nx, ny);
+    p.t = 0;
+    p.from = { x: p.cx + 0.5, y: p.cy + 0.5 };
+    if (c === 0) { p.mode = 'move'; p.to = { x: nx + 0.5, y: ny + 0.5, cx: nx, cy: ny }; }
+    else if (c === 1) { p.mode = 'bump'; p.dx = dx; p.dy = dy; }
+    else if (c === 2) { p.mode = 'exit'; p.to = { x: p.cx + 0.5 + dx * 0.75, y: p.cy + 0.5 + dy * 0.75 }; }
+    else if (c === 3) { p.mode = 'warpIn'; p.warpCell = nx + ',' + ny; p.to = { x: p.cx + 0.5 + dx * 0.6, y: p.cy + 0.5 + dy * 0.6 }; }
+  }
+
+  function arrive() {
+    p.cx = p.to.cx; p.cy = p.to.cy;
+    p.x = p.cx + 0.5; p.y = p.cy + 0.5;
+    visited.add(p.cx + ',' + p.cy);
+    Sound.step();
+    for (const b of bones) {
+      if (!b.taken && b.cx === p.cx && b.cy === p.cy) {
+        b.taken = true; stats.bones++; Sound.bone(); popup('ほねゲット！', 'small'); updateHud(true);
+      }
+    }
+  }
+
+  function doBump() {
+    stats.bumps++;
+    Sound.bump();
+    Sound.whine();
+    popup('ゴン！', 'bump');
+    view.classList.remove('shake'); void view.offsetWidth; view.classList.add('shake');
+    if (navigator.vibrate) { try { navigator.vibrate(80); } catch (e) { /* noop */ } }
+    flash('rgba(200,220,255,0.5)', 0.18);
+    updateHud(true);
+  }
+
+  function warpTo() {
+    stats.warps++;
+    enteredWarps.add(p.warpCell);
+    // 出口から遠すぎず近すぎない、知らない場所へ
+    const cand = [];
+    for (let y = 1; y < level.H; y += 2) for (let x = 1; x < level.W; x += 2) {
+      const d = level.exitDist[y][x];
+      if (d < 0) continue;
+      if (Math.abs(x - p.cx) + Math.abs(y - p.cy) < 4) continue;
+      if (d < level.pathLen * 0.35) continue;
+      cand.push({ x, y });
+    }
+    const c = cand.length ? cand[Math.floor(Math.random() * cand.length)] : level.start;
+    const opens = [0, 1, 2, 3].filter(d => cellAt(c.x + DIRS[d][0], c.y + DIRS[d][1]) === 0);
+    p.cx = c.x; p.cy = c.y; p.x = c.x + 0.5; p.y = c.y + 0.5;
+    p.dir = opens.length ? opens[Math.floor(Math.random() * opens.length)] : p.dir;
+    p.ang = p.dir * Math.PI / 2;
+    visited.add(c.x + ',' + c.y);
+    updateHud(true);
+  }
+
+  function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+  function updatePlayer(dt) {
+    const speed = cfg.speed;
+    let guard = 0;
+    while (guard++ < 4) {
+      if (p.mode === 'wait') { decide(); if (p.mode === 'wait') return; continue; }
+      if (p.mode === 'move') {
+        p.t += dt * speed;
+        p.walk += dt * speed;
+        const k = Math.min(1, p.t);
+        p.x = p.from.x + (p.to.x - p.from.x) * k;
+        p.y = p.from.y + (p.to.y - p.from.y) * k;
+        if (p.t < 1) return;
+        dt = (p.t - 1) / speed;
+        arrive();
+        p.mode = 'wait';
+        if (state !== 'play') return;
+        continue;
+      }
+      if (p.mode === 'turn') {
+        p.t += dt / TURN_DUR;
+        const k = Math.min(1, p.t);
+        p.ang = p.fromAng + (p.toAng - p.fromAng) * ease(k);
+        if (p.t < 1) return;
+        p.ang = p.dir * Math.PI / 2;
+        p.mode = 'wait';
+        dt = 0;
+        continue;
+      }
+      if (p.mode === 'bump') {
+        const before = p.t;
+        p.t += dt / BUMP_DUR;
+        const k = Math.min(1, p.t);
+        // 鏡にぶつかる → はね返る
+        const hitAt = 0.35;
+        const o = k < hitAt ? (k / hitAt) * 0.42 : 0.42 * (1 - ease((k - hitAt) / (1 - hitAt)));
+        p.x = p.from.x + p.dx * o; p.y = p.from.y + p.dy * o;
+        p.walk += dt * speed;
+        if (before < hitAt && p.t >= hitAt) doBump();
+        if (p.t < 1) return;
+        p.x = p.from.x; p.y = p.from.y;
+        p.mode = 'stun'; p.t = 0; p.running = false;
+        return;
+      }
+      if (p.mode === 'stun') {
+        p.t += dt;
+        if (p.t < STUN) return;
+        p.mode = 'wait';
+        if (p.queued === null) hint(isTouch ? 'フリックで向きを変えよう' : '← → ↓ で向きを変えよう', 2.2);
+        continue;
+      }
+      if (p.mode === 'exit' || p.mode === 'warpIn') {
+        p.t += dt * speed * 1.4;
+        p.walk += dt * speed;
+        const k = Math.min(1, p.t);
+        p.x = p.from.x + (p.to.x - p.from.x) * k;
+        p.y = p.from.y + (p.to.y - p.from.y) * k;
+        if (p.t < 1) return;
+        if (p.mode === 'exit') { clearStage(); return; }
+        p.mode = 'warp'; p.t = 0;
+        Sound.warp();
+        popup('ワープ！？', 'warp');
+        flash('rgba(170,80,255,1)', WARP_DUR);
+        return;
+      }
+      if (p.mode === 'warp') {
+        const before = p.t;
+        p.t += dt;
+        if (before < WARP_DUR * 0.45 && p.t >= WARP_DUR * 0.45) warpTo();
+        if (p.t < WARP_DUR) return;
+        p.mode = 'wait';
+        popup('ここはどこ…？', 'small');
+        return;
+      }
+      return;
+    }
+  }
+
+  // ---------- クリア ----------
+  function clearStage() {
+    state = 'clear';
+    Sound.clear();
+    popup('ワン！', 'bark');
+    flash('rgba(255,240,200,1)', 0.8);
+    const miss = stats.bumps + stats.warps;
+    const stars = miss <= 1 ? 3 : miss <= 4 ? 2 : 1;
+    let best = false;
+    if (!cfg.random) {
+      const prev = save.stages[stageIdx];
+      if (!prev || stars > prev.stars || (stars === prev.stars && stats.time < prev.time)) {
+        save.stages[stageIdx] = { stars, time: Math.round(stats.time * 10) / 10, bumps: stats.bumps, warps: stats.warps };
+        best = !!prev;
+      }
+      writeSave();
+    }
+    clearTimer = setTimeout(() => {
+      if (state !== 'clear') return;
+      $('clearStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      $('clearTitle').textContent = cfg.random ? '脱出成功！' : 'STAGE ' + (stageIdx + 1) + ' 脱出成功！';
+      $('clearStats').innerHTML =
+        row('タイム', fmtTime(stats.time)) + row('ゴン！', stats.bumps + ' 回') + row('ワープ', stats.warps + ' 回') +
+        row('ほね', stats.bones + ' / ' + bones.length) + (best ? '<p class="best">自己ベスト更新！</p>' : '');
+      $('btnNext').hidden = !(cfg.random || stageIdx + 1 < STAGES.length);
+      $('btnNext').textContent = cfg.random ? 'もう一つ' : '次のステージへ';
+      $('hud').hidden = true;
+      showOverlay('clear');
+    }, 1300);
+  }
+  function row(k, v) { return '<div class="row"><span>' + k + '</span><b>' + v + '</b></div>'; }
+  function fmtTime(t) { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
+
+  // ---------- 演出 ----------
+  let popupTimer = null;
+  function popup(text, kind) {
+    const el = $('popup');
+    el.textContent = text;
+    el.className = 'popup show ' + (kind || '');
+    clearTimeout(popupTimer);
+    popupTimer = setTimeout(() => { el.className = 'popup'; }, kind === 'ready' ? 1500 : 900);
+  }
+  let hintTimer = null;
+  function hint(text, sec) {
+    const el = $('hint');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => el.classList.remove('show'), (sec || 3.5) * 1000);
+  }
+  function flash(color, sec) { flashColor = color; flashTimer = sec; flashDur = sec; }
+  let flashDur = 1;
+  let turnIndTimer = null;
+  function showTurnIndicator(d) {
+    const el = $('turnInd');
+    el.textContent = d === -1 ? '↰' : d === 1 ? '↱' : '⤸';
+    el.className = 'turn-ind show';
+    clearTimeout(turnIndTimer);
+    turnIndTimer = setTimeout(() => { el.className = 'turn-ind'; }, 450);
+  }
+
+  // ---------- HUD ----------
+  let lastTimeStr = '';
+  function updateHud(force) {
+    if (!stats) return;
+    const ts = fmtTime(stats.time);
+    if (ts !== lastTimeStr || force) { $('hudTime').textContent = ts; lastTimeStr = ts; }
+    if (force) {
+      $('hudBump').textContent = stats.bumps;
+      $('hudWarp').textContent = stats.warps;
+      $('hudBone').textContent = stats.bones + '/' + bones.length;
+      $('btnSniff').querySelector('b').textContent = stats.sniffs;
+      $('btnSniff').disabled = stats.sniffs <= 0;
+    }
+    if (cfg && cfg.compass) {
+      $('compassNeedle').style.transform = 'rotate(' + (-(p.ang * 180 / Math.PI) - 90) + 'deg)';
+      $('compassLabel').textContent = DIR_NAMES[((Math.round(p.ang / (Math.PI / 2)) % 4) + 4) % 4] + 'へ';
+    }
+    const sn = $('sniffArrow');
+    if (sniffTimer > 0) {
+      const ex = level.exit.x + 0.5, ey = level.exit.y + 0.5;
+      const a = Math.atan2(ey - p.y, ex - p.x) - p.ang;
+      sn.hidden = false;
+      sn.querySelector('.arrow').style.transform = 'rotate(' + (a * 180 / Math.PI) + 'deg)';
+      const d = level.exitDist[p.cy] ? level.exitDist[p.cy][p.cx] : -1;
+      const ratio = d / Math.max(1, level.pathLen);
+      sn.querySelector('.label').textContent = ratio < 0.25 ? 'くんくん…すごく近い！' : ratio < 0.6 ? 'くんくん…におうぞ' : 'くんくん…まだ遠い';
+    } else sn.hidden = true;
+  }
+
+  function drawMinimap() {
+    if (!showMap) return;
+    const mm = $('minimap'), g = mm.getContext('2d');
+    const size = mm.width, cs = size / level.W;
+    g.clearRect(0, 0, size, size);
+    g.fillStyle = 'rgba(10,8,20,0.65)'; g.fillRect(0, 0, size, size);
+    const known = new Set();
+    visited.forEach(k => {
+      const [x, y] = k.split(',').map(Number);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) known.add((x + dx) + ',' + (y + dy));
+    });
+    known.forEach(k => {
+      const [x, y] = k.split(',').map(Number);
+      const c = cellAt(x, y);
+      if (c === 0) g.fillStyle = visited.has(k) ? 'rgba(255,214,150,0.55)' : 'rgba(255,214,150,0.18)';
+      else if (c === 1) g.fillStyle = 'rgba(170,190,240,0.75)';
+      else if (c === 3 && enteredWarps.has(k)) g.fillStyle = '#b061ff';
+      else g.fillStyle = '#ffc54d';
+      g.fillRect(x * cs, y * cs, cs + 0.5, cs + 0.5);
+      if (c === 3 && enteredWarps.has(k)) {
+        g.strokeStyle = '#fff'; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x * cs + 2, y * cs + 2); g.lineTo(x * cs + cs - 2, y * cs + cs - 2);
+        g.moveTo(x * cs + cs - 2, y * cs + 2); g.lineTo(x * cs + 2, y * cs + cs - 2); g.stroke();
+      }
+    });
+    // 自分
+    g.save();
+    g.translate(p.x * cs, p.y * cs); g.rotate(p.ang);
+    g.fillStyle = '#ff6b3d';
+    g.beginPath(); g.moveTo(cs * 0.55, 0); g.lineTo(-cs * 0.35, cs * 0.35); g.lineTo(-cs * 0.35, -cs * 0.35); g.closePath(); g.fill();
+    g.restore();
+  }
+
+  // ---------- 画面切替 ----------
+  function showOverlay(id) {
+    for (const o of ['title', 'howto', 'pause', 'clear']) $(o).hidden = o !== id;
+  }
+  function togglePause() {
+    if (state === 'play' || state === 'ready') { state = 'paused'; showOverlay('pause'); }
+    else if (state === 'paused') { state = readyTimer > 0 ? 'ready' : 'play'; showOverlay(null); }
+  }
+  function firstUncleared() {
+    for (let i = 0; i < STAGES.length; i++) if (!save.stages[i]) return i;
+    return 0;
+  }
+  function toTitle() {
+    clearTimeout(clearTimer);
+    state = 'title';
+    $('hud').hidden = true;
+    buildStageList();
+    showOverlay('title');
+    startDemo();
+  }
+  function buildStageList() {
+    const list = $('stageList');
+    list.innerHTML = '';
+    STAGES.forEach((s, i) => {
+      const rec = save.stages[i];
+      const unlocked = i === 0 || !!save.stages[i - 1];
+      const b = document.createElement('button');
+      b.className = 'stage-btn';
+      b.disabled = !unlocked;
+      b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? s.name : '？？？') + '</span>' +
+        '<span class="st">' + (rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : unlocked ? 'NEW' : '🔒') + '</span>';
+      b.addEventListener('click', () => startStage(i));
+      list.appendChild(b);
+    });
+    const allClear = STAGES.every((_, i) => save.stages[i]);
+    const r = document.createElement('button');
+    r.className = 'stage-btn random';
+    r.disabled = !allClear;
+    r.innerHTML = '<span class="no">?</span><span class="nm">' + (allClear ? 'きまぐれ迷宮' : '全ステージクリアで解放') + '</span><span class="st">∞</span>';
+    r.addEventListener('click', () => startStage(STAGES.length));
+    list.appendChild(r);
+  }
+
+  $('btnHowto').addEventListener('click', () => showOverlay('howto'));
+  $('btnHowtoBack').addEventListener('click', () => showOverlay('title'));
+  $('btnResume').addEventListener('click', togglePause);
+  $('btnRetry').addEventListener('click', () => startStage(stageIdx));
+  $('btnQuit').addEventListener('click', toTitle);
+  $('btnNext').addEventListener('click', () => startStage(cfg.random ? STAGES.length : stageIdx + 1));
+  $('btnAgain').addEventListener('click', () => startStage(stageIdx));
+  $('btnTitle').addEventListener('click', toTitle);
+  function syncSound() {
+    const m = Sound.isMuted();
+    document.querySelectorAll('.btn-sound').forEach(b => { b.textContent = m ? '🔇' : '🔊'; b.setAttribute('aria-label', m ? '音を出す' : '音を消す'); });
+  }
+  document.querySelectorAll('.btn-sound').forEach(b => b.addEventListener('click', () => {
+    Sound.setMuted(!Sound.isMuted());
+    try { localStorage.setItem(SAVE_KEY + '-mute', Sound.isMuted() ? '1' : '0'); } catch (e) { /* noop */ }
+    syncSound();
+  }));
+  try { Sound.setMuted(localStorage.getItem(SAVE_KEY + '-mute') === '1'); } catch (e) { /* noop */ }
+  syncSound();
+
+  // ---------- タイトル背景デモ ----------
+  function startDemo() {
+    const lv = Maze.generate(6, 8, 0, 777, 3);
+    const dcfg = { tint: 0.14, fog: 13, warpHint: 0 };
+    let best = { x: 1, y: 1 };
+    // 見通しのよい交差点を探す
+    let bestOpen = 0;
+    for (let y = 1; y < lv.H; y += 2) for (let x = 1; x < lv.W; x += 2) {
+      let o = 0; for (const [dx, dy] of DIRS) if (lv.map[y + dy][x + dx] === 0) o++;
+      if (o > bestOpen) { bestOpen = o; best = { x, y }; }
+    }
+    demo = { lv, cfg: dcfg, x: best.x + 0.5, y: best.y + 0.5, ang: 0 };
+    renderer.setLevel(lv, dcfg);
+  }
+
+  // ---------- ループ ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    clock += dt;
+
+    if (state === 'title' && demo) {
+      demo.ang += dt * 0.22;
+      renderer.render({
+        px: demo.x, py: demo.y, ang: demo.ang, bob: 0,
+        sprites: [{ kind: 'dog', x: demo.x, y: demo.y, z: 0, w: 0.5, h: 0.42, fx: Math.cos(demo.ang), fy: Math.sin(demo.ang), frame: (clock * 2 | 0) % 2 }],
+      });
+    } else if (level && p) {
+      if (state === 'ready') {
+        readyTimer -= dt;
+        if (readyTimer <= 0) { state = 'play'; p.running = true; popup('ワン！', 'go'); Sound.bark(); }
+      }
+      if (state === 'play') {
+        stats.time += dt;
+        if (sniffTimer > 0) sniffTimer -= dt;
+        updatePlayer(dt);
+      } else if (state === 'clear') {
+        updatePlayer(0);
+      }
+      const moving = p.mode === 'move' || p.mode === 'bump' || p.mode === 'exit' || p.mode === 'warpIn';
+      const fr = moving ? ((p.walk * 4) | 0) % 2 : 0;
+      const bob = moving ? Math.sin(p.walk * Math.PI * 4) * 2.2 : 0;
+      const sprites = [{ kind: 'dog', x: p.x, y: p.y, z: 0, w: 0.5, h: 0.42, fx: Math.cos(p.ang), fy: Math.sin(p.ang), frame: fr }];
+      for (const b of bones) if (!b.taken) sprites.push({ img: Sprites.bone, x: b.x, y: b.y, z: 0.03 + 0.03 * Math.sin(clock * 3 + b.x), w: 0.3, h: 0.13 });
+      renderer.render({ px: p.x, py: p.y, ang: p.ang, bob, sprites });
+      if (state !== 'paused') { updateHud(false); drawMinimap(); }
+    }
+
+    // フラッシュ
+    const fl = $('flash');
+    if (flashTimer > 0) {
+      flashTimer -= dt;
+      fl.style.background = flashColor;
+      const k = Math.max(0, flashTimer / flashDur);
+      fl.style.opacity = flashColor.indexOf('170,80,255') >= 0 ? Math.sin(k * Math.PI) : k;
+    } else fl.style.opacity = 0;
+
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  toTitle();
+  requestAnimationFrame(frame);
+
+  // テスト・デバッグ用
+  window.__game = {
+    get state() { return state; }, get player() { return p; }, get level() { return level; }, get stats() { return stats; },
+    startStage, turn, go, toggleSit, sniff, STAGES,
+  };
+})();
