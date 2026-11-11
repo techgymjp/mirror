@@ -31,10 +31,9 @@
   }
 
   /**
-   * map: 0 = 床, 1 = 鏡の壁, 2 = 本物の出口, 3 = ダミー出口（ワープゾーン）
+   * map: 0 = 床, 1 = 鏡の壁, 2 = 本物の出口, 3 = ダミー出口（ワープゾーン。行き止まりにはすべて置く）
    */
-  function generate(cells, loops, bonesCount, seed, warpCount) {
-    warpCount = warpCount || 0;
+  function generate(cells, loops, bonesCount, seed) {
     const rnd = mulberry32(seed);
     const W = cells * 2 + 1, H = W;
     const map = Array.from({ length: H }, () => new Array(W).fill(1));
@@ -118,28 +117,18 @@
       bones.push({ x, y });
     }
 
-    // ダミー出口（ワープ）：行き止まりの突き当たりの壁を扉に見せかける
+    // ダミー出口（ワープ）：すべての行き止まりの突き当たりを扉にする
+    // （本物の出口のある行き止まりだけは除く）
     const warps = [];
-    const cand = [];
     for (let y = 1; y < H - 1; y += 2) {
       for (let x = 1; x < W - 1; x += 2) {
-        if (Math.abs(x - start.x) + Math.abs(y - start.y) <= 2) continue;
         if (x === best.cx && y === best.cy) continue;
         const open = DIRS.filter(([dx, dy]) => map[y + dy][x + dx] === 0);
         if (open.length !== 1) continue;
         const [ox, oy] = open[0];
         const wx = x - ox, wy = y - oy;
-        if (map[wy][wx] === 1) cand.push({ x: wx, y: wy, cx: x, cy: y });
+        if (map[wy][wx] === 1) { map[wy][wx] = 3; warps.push({ x: wx, y: wy, cx: x, cy: y }); }
       }
-    }
-    for (let i = cand.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [cand[i], cand[j]] = [cand[j], cand[i]];
-    }
-    for (const c of cand) {
-      if (warps.length >= warpCount) break;
-      map[c.y][c.x] = 3;
-      warps.push(c);
     }
 
     const exitDist = bfs(map, W, H, best.cx, best.cy);

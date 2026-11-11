@@ -166,6 +166,9 @@
               const col = Math.min(D.cols - 1, Math.round(Math.abs(psi) / D.step));
               if (psi < 0) u = 1 - u;
               sx = col * D.fw; sy = s.frame * D.fh; fw = D.fw; fh = D.fh;
+            } else if (s.fw) {
+              if (!img.complete || !img.naturalWidth) continue;
+              sx = s.sx; sy = s.sy; fw = s.fw; fh = s.fh;
             } else { fw = img.width; fh = img.height; }
             hits.push({ ty, u, img, s, sx, sy, fw, fh });
           }

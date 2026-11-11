@@ -17,17 +17,15 @@
   dogSheet.src = 'assets/dog.png';
   const DOG = { sheet: dogSheet, fw: 144, fh: 120, cols: 9, step: 22.5, w: 1.24 * 0.44, h: 1.03 * 0.44, z: -0.02 * 0.44 };
 
-  const bone = mk(28, 12, g => {
-    const c = '#fbf3e4';
-    ell(g, 5, 3.5, 3.5, 3.2, c); ell(g, 5, 8.5, 3.5, 3.2, c);
-    ell(g, 23, 3.5, 3.5, 3.2, c); ell(g, 23, 8.5, 3.5, 3.2, c);
-    g.fillStyle = c; g.fillRect(5, 3.5, 18, 5);
-    g.fillStyle = 'rgba(160,130,100,.5)'; g.fillRect(6, 7.5, 16, 1);
-  });
+  // ほねスプライトシート（tools/render_bone.py で事前レンダリング）。横 12 コマでくるくる回る
+  const boneSheet = new Image();
+  boneSheet.src = 'assets/bone.png';
+  const BONE = { sheet: boneSheet, fw: 128, fh: 64, frames: 12, fps: 9, w: 1.32 * 0.26, h: 0.66 * 0.26 };
 
   // 扉テクスチャ（壁1面ぶん）。fake=true はワープ扉（色味がわずかに違う）
   function door(fake, hintStrength) {
-    return mk(64, 64, g => {
+    return mk(128, 128, g => {
+      g.scale(2, 2);
       g.fillStyle = '#2a2442'; g.fillRect(0, 0, 64, 64);
       g.fillStyle = '#8d8aa8'; g.fillRect(0, 0, 3, 64); g.fillRect(61, 0, 3, 64);
       const top = fake ? [255, 240, 200] : [255, 244, 200];
@@ -53,5 +51,5 @@
     });
   }
 
-  window.Sprites = { DOG, bone, door };
+  window.Sprites = { DOG, BONE, door };
 })();

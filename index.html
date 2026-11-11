@@ -32,8 +32,6 @@
     </div>
     <div id="compass" class="compass"><div id="compassNeedle" class="needle"></div><div id="compassLabel" class="label">北へ</div></div>
     <canvas id="minimap" width="132" height="132"></canvas>
-    <button id="btnSniff" class="sniff-btn">👃 くんくん <b>3</b></button>
-    <div id="sniffArrow" hidden><div class="arrow">➜</div><div class="label"></div></div>
     <div id="turnInd" class="turn-ind"></div>
     <div id="popup" class="popup"></div>
     <div id="hint" class="hint"></div>
@@ -60,11 +58,10 @@
         <li><b>あなたは犬。</b>迷路の中を自動で前へ走りつづけます。</li>
         <li>操作は<b>左右だけ</b>。<b>フリック ← →</b> で次のマスで曲がります（PC は <kbd>←</kbd><kbd>→</kbd>）。</li>
         <li>行き止まりでは、角に着く前に<b>同じ向きへ2回</b>フリックすると後ろを向けます。</li>
-        <li>PC は <kbd>K</kbd> でくんくん、<kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
+        <li>PC は <kbd>M</kbd> で地図、<kbd>Esc</kbd> で一時停止。</li>
         <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れて鏡に当たると「ゴン！」で<b>即ゲームオーバー</b>。</li>
         <li>鏡には<b>自分の姿</b>も映ります。向こうから犬が来たら…それは自分です。</li>
-        <li><b>本物の出口は一つだけ。</b>ほかの「EXIT」はワープゾーン。どこかへ飛ばされます。</li>
-        <li>迷ったら <b>👃 くんくん</b> で本物の出口の方向をかぎ分けよう（1ステージ3回）。</li>
+        <li><b>本物の出口は一つだけ。</b>ほかの「EXIT」はワープゾーン。<b>行き止まりの突き当たりは必ずワープ</b>で、迷路のどこかへ飛ばされます。</li>
         <li><b>🦴 ほね</b>を持っていれば、鏡に当たっても<b>1回だけセーフ</b>（ほねを1本使います）。行き止まりに落ちているので、取りに行くかは作戦しだい。</li>
         <li>ワープとセーフになったゴンが少ないほど ★ が増えます。</li>
       </ul>

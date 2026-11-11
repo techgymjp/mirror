@@ -74,7 +74,6 @@
     },
     whine: { len: 0.8, fn: k => k.tone(900, 0.35, 'sine', 0.1, 600, 0.35) },
     bone: { len: 2.2, fn: k => [1047, 1319, 1568].forEach((f, i) => k.bell(f, i * 0.07, 0.09, 0.6)) },
-    sniff: { len: 0.3, fn: k => { k.noise(0.07, 0.3, 3200, 0); k.noise(0.07, 0.3, 3200, 0.14); } },
     warp: {
       len: 3.2, fn: k => {
         k.tone(200, 0.8, 'sine', 0.2, 1600, 0, { rev: 0.8 });
@@ -308,7 +307,6 @@
     bump() { play('bump'); },
     whine() { play('whine'); },
     bone() { play('bone'); },
-    sniff() { play('sniff'); },
     warp() { play('warp'); },
     bark() { play('bark'); },
     clear() { play('clear'); },

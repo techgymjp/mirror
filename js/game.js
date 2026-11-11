@@ -9,16 +9,16 @@
   const SAVE_KEY = 'inu-kagami-v1';
 
   const STAGES = [
-    { name: 'はじめての鏡', cells: 4, loops: 0, bones: 2, warps: 1, tint: 0.26, fog: 11, speed: 1.8, compass: true, warpHint: 0.35, seed: 1203 },
-    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, warps: 2, tint: 0.18, fog: 12, speed: 2.1, compass: true, warpHint: 0.22, seed: 2207 },
-    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, warps: 3, tint: 0.13, fog: 13, speed: 2.4, compass: true, warpHint: 0.1, seed: 3301 },
-    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, warps: 4, tint: 0.09, fog: 14, speed: 2.7, compass: false, warpHint: 0, seed: 4409 },
-    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, warps: 6, tint: 0.06, fog: 15, speed: 3.0, compass: false, warpHint: 0, seed: 5501 },
+    { name: 'はじめての鏡', cells: 4, loops: 0, bones: 2, tint: 0.26, fog: 11, speed: 1.8, compass: true, warpHint: 0.35, seed: 1203 },
+    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, tint: 0.18, fog: 12, speed: 2.1, compass: true, warpHint: 0.22, seed: 2207 },
+    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, tint: 0.13, fog: 13, speed: 2.4, compass: true, warpHint: 0.1, seed: 3301 },
+    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, tint: 0.09, fog: 14, speed: 2.7, compass: false, warpHint: 0, seed: 4409 },
+    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, tint: 0.06, fog: 15, speed: 3.0, compass: false, warpHint: 0, seed: 5501 },
   ];
   function randomCfg() {
     const seed = (Math.random() * 1e9) | 0;
     const r = Maze.mulberry32(seed);
-    return { name: 'きまぐれ迷宮', cells: 6 + Math.floor(r() * 3), loops: 5 + Math.floor(r() * 5), bones: 4, warps: 4 + Math.floor(r() * 3), tint: 0.08, fog: 14, speed: 2.8, compass: false, warpHint: 0, seed, random: true };
+    return { name: 'きまぐれ迷宮', cells: 6 + Math.floor(r() * 3), loops: 5 + Math.floor(r() * 5), bones: 4, tint: 0.08, fog: 14, speed: 2.8, compass: false, warpHint: 0, seed, random: true };
   }
 
   // ---------- 状態 ----------
@@ -28,7 +28,7 @@
   let state = 'title';   // title | ready | play | paused | clear
   let stageIdx = 0, cfg = null, level = null, p = null, stats = null;
   let bones = [], visited = null, enteredWarps = null;
-  let showMap = true, sniffTimer = 0, readyTimer = 0, flashTimer = 0, flashColor = '#fff';
+  let showMap = true, readyTimer = 0, flashTimer = 0, flashColor = '#fff';
   let demo = null, clock = 0;
   let save = loadSave();
 
@@ -55,7 +55,7 @@
     clearTimeout(overTimer);
     stageIdx = i;
     cfg = i < STAGES.length ? STAGES[i] : randomCfg();
-    level = Maze.generate(cfg.cells, cfg.loops, cfg.bones, cfg.seed, cfg.warps);
+    level = Maze.generate(cfg.cells, cfg.loops, cfg.bones, cfg.seed);
     renderer.setLevel(level, cfg);
     const s = level.start;
     p = {
@@ -63,10 +63,9 @@
       mode: 'wait', t: 0, running: false, queued: null, walk: 0, from: null, to: null,
     };
     bones = level.bones.map(b => ({ x: b.x + 0.5, y: b.y + 0.5, cx: b.x, cy: b.y, taken: false }));
-    stats = { time: 0, bumps: 0, warps: 0, bones: 0, got: 0, sniffs: 3 }; // bones = 手持ち（お守り）, got = 拾った数
+    stats = { time: 0, warps: 0, bumps: 0, bones: 0, got: 0 }; // bones = 手持ち（お守り）, got = 拾った数
     visited = new Set([s.x + ',' + s.y]);
     enteredWarps = new Set();
-    sniffTimer = 0;
     showOverlay(null);
     $('hud').hidden = false;
     $('stageName').textContent = (cfg.random ? '' : 'STAGE ' + (i + 1) + '　') + cfg.name;
@@ -92,19 +91,12 @@
     Sound.turn();
     if (p.queued !== null) showTurnIndicator(p.queued);
   }
-  function sniff() {
-    if (state !== 'play' || stats.sniffs <= 0 || sniffTimer > 0) return;
-    stats.sniffs--;
-    sniffTimer = 3.2;
-    Sound.sniff();
-    updateHud(true);
-  }
   function toggleMap() { showMap = !showMap; $('minimap').hidden = !showMap; }
 
   const KEYMAP = {
     ArrowLeft: () => turn(-1), a: () => turn(-1), A: () => turn(-1),
     ArrowRight: () => turn(1), d: () => turn(1), D: () => turn(1),
-    k: sniff, K: sniff, m: toggleMap, M: toggleMap,
+    m: toggleMap, M: toggleMap,
   };
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { togglePause(); e.preventDefault(); return; }
@@ -141,7 +133,6 @@
   // iOS のスクロール・ズームを防ぐ
   view.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
-  $('btnSniff').addEventListener('click', sniff);
   $('btnMap').addEventListener('click', toggleMap);
   $('btnPause').addEventListener('click', togglePause);
 
@@ -414,23 +405,11 @@
     if (force) {
       $('hudWarp').textContent = stats.warps;
       $('hudBone').textContent = stats.bones;
-      $('btnSniff').querySelector('b').textContent = stats.sniffs;
-      $('btnSniff').disabled = stats.sniffs <= 0;
     }
     if (cfg && cfg.compass) {
       $('compassNeedle').style.transform = 'rotate(' + (-(p.ang * 180 / Math.PI) - 90) + 'deg)';
       $('compassLabel').textContent = DIR_NAMES[((Math.round(p.ang / (Math.PI / 2)) % 4) + 4) % 4] + 'へ';
     }
-    const sn = $('sniffArrow');
-    if (sniffTimer > 0) {
-      const ex = level.exit.x + 0.5, ey = level.exit.y + 0.5;
-      const a = Math.atan2(ey - p.y, ex - p.x) - p.ang;
-      sn.hidden = false;
-      sn.querySelector('.arrow').style.transform = 'rotate(' + (a * 180 / Math.PI) + 'deg)';
-      const d = level.exitDist[p.cy] ? level.exitDist[p.cy][p.cx] : -1;
-      const ratio = d / Math.max(1, level.pathLen);
-      sn.querySelector('.label').textContent = ratio < 0.25 ? 'くんくん…すごく近い！' : ratio < 0.6 ? 'くんくん…におうぞ' : 'くんくん…まだ遠い';
-    } else sn.hidden = true;
   }
 
   function drawMinimap() {
@@ -547,7 +526,7 @@
 
   // ---------- タイトル背景デモ ----------
   function startDemo() {
-    const lv = Maze.generate(6, 8, 0, 777, 3);
+    const lv = Maze.generate(6, 8, 0, 777);
     const dcfg = { tint: 0.14, fog: 13, warpHint: 0 };
     let best = { x: 1, y: 1 };
     // 見通しのよい交差点を探す
@@ -581,7 +560,6 @@
       }
       if (state === 'play') {
         stats.time += dt;
-        if (sniffTimer > 0) sniffTimer -= dt;
         updatePlayer(dt);
       } else if (state === 'clear' || state === 'over') {
         updatePlayer(0);
@@ -590,7 +568,12 @@
       const fr = moving ? 1 + (((p.walk * 6.5) | 0) % 4) : 0;
       const bob = moving ? Math.sin(p.walk * Math.PI * 4) * 2.2 : 0;
       const sprites = [dogSprite(p.x, p.y, p.ang, fr)];
-      for (const b of bones) if (!b.taken) sprites.push({ img: Sprites.bone, x: b.x, y: b.y, z: 0.03 + 0.03 * Math.sin(clock * 3 + b.x), w: 0.3, h: 0.13 });
+      const B = Sprites.BONE;
+      for (const b of bones) {
+        if (b.taken) continue;
+        const f = ((clock * B.fps + b.x * 3) | 0) % B.frames;
+        sprites.push({ img: B.sheet, sx: f * B.fw, sy: 0, fw: B.fw, fh: B.fh, x: b.x, y: b.y, z: 0.05 + 0.035 * Math.sin(clock * 2.6 + b.x), w: B.w, h: B.h });
+      }
       renderer.render({ px: p.x, py: p.y, ang: p.ang, bob, sprites });
       if (state !== 'paused') { updateHud(false); drawMinimap(); }
     }
@@ -614,6 +597,6 @@
   // テスト・デバッグ用
   window.__game = {
     get state() { return state; }, get player() { return p; }, get level() { return level; }, get stats() { return stats; },
-    startStage, turn, sniff, STAGES,
+    startStage, turn, STAGES,
   };
 })();
