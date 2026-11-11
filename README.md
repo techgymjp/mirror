@@ -52,6 +52,7 @@ python3 -m http.server 8000
 | `js/sprites.js` | 柴犬・ほねのスプライトシートの読み込み、扉テクスチャの生成 |
 | `assets/bone.png` | くるくる回るほね（12コマ）。`tools/render_bone.py` で生成 |
 | `assets/dog.png` | 柴犬スプライト（16方向 × 立ち＋速歩き4コマ）。`tools/render_dog.py` で生成 |
+| `tools/simulate.js` | 腕前（上級・中級・初級）ごとの仮想プレイヤーで全ステージを走らせ、クリア率などのばらつきを確かめるシミュレーター。`node tools/simulate.js 2000 [--causes] [--hold] [--bones=1] [--speed=0.85] [--tuned]` |
 | `tools/render_dog.py` | 柴犬の3Dモデル（SDF）をレイマーチングで描画してスプライトシートを書き出すスクリプト（numpy, Pillow） |
 | `js/audio.js` | WebAudio の効果音と、サイバー空間風の自動生成 BGM（タイトル／プレイで変化） |
 | `js/game.js` | 自動走行・フリック入力・ステージ進行・HUD・セーブ（localStorage） |
