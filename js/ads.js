@@ -13,7 +13,7 @@ window.Ads = (() => {
       },
       // 本番の広告ユニット(AdMob の Android アプリ「犬も歩けば鏡に当たる」)。空の種類は本番ビルドで出さない
       production: {
-        interstitial: '',
+        interstitial: 'ca-app-pub-6411535997477460/9310563473',
         rewarded: '',
         banner: 'ca-app-pub-6411535997477460/1815216833',
       },
