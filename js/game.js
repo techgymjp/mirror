@@ -5,23 +5,83 @@
   const $ = id => document.getElementById(id);
   const DIRS = Maze.DIRS;
   const DIR_NAMES = ['東', '南', '西', '北'];
+  const CAM_BACK = 0.42, CAM_Z_BEHIND = 0.56;
   const TURN_DUR = 0.14, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
-  const SAVE_KEY = 'inu-kagami-v1';
+  const SAVE_KEY = 'inu-kagami-v2';
 
-  // 迷路の形（seed）は、出口までの距離・ワープ扉・曲がる回数・分かれ道がステージごとに増えるように選んである
-  //   1: 23マス/ワープ1/曲がり5/分岐1 → 2: 31/2/8/3 → 3: 39/3/11/5 → 4: 47/5/14/7 → 5: 57/7/18/9
+  // ---------- コース ----------
+  // 手作りコース：# 鏡の壁 / . 床 / S スタート / E 本物の出口 / W ワープ扉 / B ほね
+  const COURSES = {
+    spiral: [
+      '##E##########',
+      '##.##########',
+      '##.#.......##',
+      '##.#.#####.##',
+      '##.#.#...#.##',
+      '#B.#.#.#.#.##',
+      '##.#.#S#.#.B#',
+      '##.#.###.#.##',
+      '##.#.....#.##',
+      '##.#######.##',
+      '##.........##',
+      '######.######',
+      '#############',
+    ],
+    zigzag: [
+      '#############',
+      '#S..........W',
+      '###########.#',
+      'W...........#',
+      '#.#####.#####',
+      '#.....B.....W',
+      '###########.#',
+      'W..B........#',
+      '#.###.#######',
+      '#...........E',
+      '#############',
+    ],
+  };
+
+  // 10 ステージ。それぞれ形と仕掛けが違い、後半ほど難しい
+  //   maze: 自動生成なら { w, h, loops, straight, twist, rooms, seed }、手作りなら { course }
+  //   tint/tintColor: 鏡の色味  fog: 見える距離  speed: 走る速さ（マス/秒）
+  //   speedUp: 時間とともに加速  lightning: 暗闇＋稲妻  mirrorWorld: 画面が左右反転
+  //   compass: 方角表示  warpHint: ワープ扉の紫がかり（0 で本物と同じ見た目）
   const STAGES = [
-    { name: 'はじめての鏡', cells: 4, loops: 1, bones: 2, tint: 0.26, fog: 11, speed: 1.8, compass: true, warpHint: 0.35, seed: 509 },
-    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, tint: 0.18, fog: 12, speed: 2.1, compass: true, warpHint: 0.22, seed: 84 },
-    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, tint: 0.13, fog: 13, speed: 2.4, compass: true, warpHint: 0.1, seed: 711 },
-    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, tint: 0.09, fog: 14, speed: 2.7, compass: false, warpHint: 0, seed: 764 },
-    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, tint: 0.06, fog: 15, speed: 3.0, compass: false, warpHint: 0, seed: 4251 },
+    { name: 'はじめての鏡', desc: 'まずは鏡の迷路に慣れよう', maze: { w: 4, h: 4, loops: 1, seed: 509 }, bones: 2,
+      tint: 0.26, tintColor: 'rgb(70,110,190)', fog: 11, speed: 1.8, compass: true, warpHint: 0.35 },
+    { name: 'まっすぐ廊下', desc: '長い廊下の先に急カーブ。曲がり遅れに注意', maze: { w: 6, h: 4, straight: 0.9, loops: 1, seed: 3624 }, bones: 2,
+      tint: 0.22, tintColor: 'rgb(50,160,170)', sky: '#0f2228', floor: '#3f5a5c', fog: 12, speed: 2.0, compass: true, warpHint: 0.3 },
+    { name: 'らせん回廊', desc: '中心から外へ、ぐるぐる右回り。わき道の扉はワープ', maze: { course: 'spiral' },
+      tint: 0.2, tintColor: 'rgb(140,90,210)', sky: '#1d1238', floor: '#4f3a66', fog: 12, speed: 2.2, compass: true, warpHint: 0.25 },
+    { name: 'つづら折り', desc: '右・右・左・左のリズム。近道もあるよ', maze: { course: 'zigzag' },
+      tint: 0.18, tintColor: 'rgb(70,170,110)', sky: '#0f2418', floor: '#3c5a44', fog: 12, speed: 2.5, compass: true, warpHint: 0.2 },
+    { name: '鏡の大広間', desc: '広い部屋では映りこみが何倍にも。どこでも曲がれる', maze: { w: 6, h: 6, loops: 3, rooms: 2, seed: 2384 }, bones: 3,
+      tint: 0.15, tintColor: 'rgb(200,160,80)', sky: '#261d0e', floor: '#5e4c30', fog: 13, speed: 2.3, compass: true, warpHint: 0.1 },
+    { name: '闇の合わせ鏡', desc: 'ほぼ真っ暗。ときどき光る稲妻で先を見よう', maze: { w: 6, h: 6, loops: 4, seed: 5012 }, bones: 3,
+      tint: 0.12, tintColor: 'rgb(60,70,170)', sky: '#05050c', floor: '#1a1826', fog: 3.2, lightning: true, speed: 2.1, compass: false, warpHint: 0 },
+    { name: '横長回廊', desc: 'くねくね曲がる細長い迷路', maze: { w: 11, h: 4, twist: 0.7, loops: 4, seed: 1610 }, bones: 3,
+      tint: 0.11, tintColor: 'rgb(200,90,100)', sky: '#250e14', floor: '#5c3640', fog: 13, speed: 2.6, compass: false, warpHint: 0 },
+    { name: '鏡の国', desc: '画面が左右反転！見た目と逆にフリック', maze: { w: 6, h: 6, loops: 5, seed: 409 }, bones: 3,
+      tint: 0.1, tintColor: 'rgb(210,120,190)', sky: '#24102a', floor: '#5a3a5e', fog: 13, mirrorWorld: true, speed: 2.3, compass: false, warpHint: 0 },
+    { name: '加速する迷宮', desc: '時間がたつほど犬が速くなる。迷っている暇はない', maze: { w: 7, h: 7, loops: 6, seed: 7124 }, bones: 4,
+      tint: 0.08, tintColor: 'rgb(220,130,60)', sky: '#26140a', floor: '#5e4030', fog: 14, speed: 2.2, speedUp: { per: 25, max: 1.8 }, compass: false, warpHint: 0 },
+    { name: '鏡の大迷宮', desc: 'これまでの試練の集大成', maze: { w: 9, h: 9, loops: 10, rooms: 1, seed: 4667 }, bones: 5,
+      tint: 0.05, tintColor: 'rgb(150,160,210)', fog: 15, speed: 2.7, speedUp: { per: 60, max: 1.35 }, compass: false, warpHint: 0 },
   ];
   function randomCfg() {
     const seed = (Math.random() * 1e9) | 0;
     const r = Maze.mulberry32(seed);
-    return { name: 'きまぐれ迷宮', cells: 6 + Math.floor(r() * 3), loops: 5 + Math.floor(r() * 5), bones: 4, tint: 0.08, fog: 14, speed: 2.8, compass: false, warpHint: 0, seed, random: true };
+    const n = 6 + Math.floor(r() * 3);
+    return { name: 'きまぐれ迷宮', desc: '毎回ちがう迷路', maze: { w: n, h: n, loops: 5 + Math.floor(r() * 5), rooms: Math.floor(r() * 2), seed }, bones: 4,
+      tint: 0.08, fog: 14, speed: 2.8, compass: false, warpHint: 0, random: true };
   }
+  function buildLevel(c) {
+    if (c.maze.course) return Maze.fromAscii(COURSES[c.maze.course], 7);
+    return Maze.generate(Object.assign({ bones: c.bones }, c.maze));
+  }
+  // 見える距離（「どこまでも続く」感じを出すため、全体に遠くまで描く）
+  const FOG_SCALE = 1.7, MAX_BOUNCE = 24;
 
   // ---------- 状態 ----------
   const canvas = $('screen');
@@ -32,6 +92,9 @@
   let bones = [], visited = null, enteredWarps = null;
   let showMap = true, readyTimer = 0, flashTimer = 0, flashColor = '#fff';
   let demo = null, clock = 0;
+  let rcfg = null, lightning = null, speedLevel = 1;
+  let camBehind = true;
+  try { camBehind = localStorage.getItem('inu-kagami-cam') !== 'eye'; } catch (e) { /* noop */ }
   let save = loadSave();
 
   function loadSave() {
@@ -57,8 +120,12 @@
     clearTimeout(overTimer);
     stageIdx = i;
     cfg = i < STAGES.length ? STAGES[i] : randomCfg();
-    level = Maze.generate(cfg.cells, cfg.loops, cfg.bones, cfg.seed);
-    renderer.setLevel(level, cfg);
+    level = buildLevel(cfg);
+    rcfg = Object.assign({}, cfg, { fog: cfg.fog * (cfg.lightning ? 1 : FOG_SCALE), maxBounce: MAX_BOUNCE });
+    renderer.setLevel(level, rcfg);
+    lightning = { next: 2.5, t: 0 };
+    speedLevel = 1;
+    canvas.style.setProperty('--flip', cfg.mirrorWorld ? -1 : 1);
     const s = level.start;
     p = {
       cx: s.x, cy: s.y, dir: s.dir, x: s.x + 0.5, y: s.y + 0.5, ang: s.dir * Math.PI / 2,
@@ -76,7 +143,7 @@
     Sound.music('play');
     readyTimer = 1.6;
     popup('よーい…', 'ready');
-    hint(isTouch ? '← → フリックで次の角を曲がる' : '← → キーで次の角を曲がる');
+    hint(cfg.desc + (i === 0 ? (isTouch ? '　← → フリックで次の角を曲がる' : '　← → キーで次の角を曲がる') : ''), 4);
     updateHud(true);
   }
 
@@ -90,7 +157,7 @@
     if (q < -2) q = 2;
     if (q === -2) q = 2;
     p.queued = q === 0 ? null : q;
-    Sound.turn();
+    Sound.flick(q === 2 ? 0 : d);
     if (p.queued !== null) showTurnIndicator(p.queued);
   }
   function toggleMap() { showMap = !showMap; $('minimap').hidden = !showMap; }
@@ -137,6 +204,18 @@
 
   $('btnMap').addEventListener('click', toggleMap);
   $('btnPause').addEventListener('click', togglePause);
+  function syncCam() {
+    const b = $('btnCam');
+    b.textContent = camBehind ? '🐕' : '👁';
+    b.setAttribute('aria-label', camBehind ? '犬目線に切り替え' : '背後視点に切り替え');
+    b.title = camBehind ? '背後視点（タップで犬目線）' : '犬目線（タップで背後視点）';
+  }
+  $('btnCam').addEventListener('click', () => {
+    camBehind = !camBehind;
+    try { localStorage.setItem('inu-kagami-cam', camBehind ? 'behind' : 'eye'); } catch (e) { /* noop */ }
+    syncCam();
+  });
+  syncCam();
 
   // ---------- 動き ----------
   function cellAt(x, y) {
@@ -255,10 +334,30 @@
     return { kind: 'dog', x, y, z: D.z, w: D.w, h: D.h, fx: Math.cos(ang), fy: Math.sin(ang), frame };
   }
 
+  function curSpeed() {
+    if (!cfg.speedUp) return cfg.speed;
+    return cfg.speed * Math.min(cfg.speedUp.max, 1 + stats.time / cfg.speedUp.per);
+  }
+
+  // 稲妻：ときどき一瞬だけ遠くまで見える
+  function updateLightning(dt) {
+    if (!cfg.lightning) return;
+    lightning.next -= dt;
+    if (lightning.next <= 0) {
+      lightning.t = 0.9;
+      lightning.next = 3 + Math.random() * 3;
+      flash('rgba(200,210,255,0.55)', 0.25);
+      Sound.thunder();
+    }
+    if (lightning.t > 0) lightning.t -= dt;
+    const k = Math.max(0, lightning.t / 0.9);
+    rcfg.fog = cfg.fog + (16 - cfg.fog) * Math.pow(k, 0.6);
+  }
+
   function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
   function updatePlayer(dt) {
-    const speed = cfg.speed;
+    const speed = curSpeed();
     let guard = 0;
     while (guard++ < 4) {
       if (p.mode === 'wait') { decide(); if (p.mode === 'wait') return; continue; }
@@ -478,7 +577,8 @@
       const b = document.createElement('button');
       b.className = 'stage-btn';
       b.disabled = !unlocked;
-      b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? s.name : '？？？') + '</span>' +
+      b.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="nm">' + (unlocked ? s.name : '？？？') +
+        (unlocked ? '<small>' + s.desc + '</small>' : '') + '</span>' +
         '<span class="st">' + (rec ? '★'.repeat(rec.stars) + '☆'.repeat(3 - rec.stars) : unlocked ? 'NEW' : '🔒') + '</span>';
       b.addEventListener('click', () => startStage(i));
       list.appendChild(b);
@@ -528,8 +628,9 @@
 
   // ---------- タイトル背景デモ ----------
   function startDemo() {
+    canvas.style.setProperty('--flip', 1);
     const lv = Maze.generate(6, 8, 0, 777);
-    const dcfg = { tint: 0.14, fog: 13, warpHint: 0 };
+    const dcfg = { tint: 0.14, fog: 13 * FOG_SCALE, warpHint: 0, maxBounce: MAX_BOUNCE };
     let best = { x: 1, y: 1 };
     // 見通しのよい交差点を探す
     let bestOpen = 0;
@@ -562,6 +663,11 @@
       }
       if (state === 'play') {
         stats.time += dt;
+        updateLightning(dt);
+        if (cfg.speedUp) {
+          const lv = Math.floor(curSpeed() / cfg.speed * 4);
+          if (lv > speedLevel * 4 && lv > 4) { speedLevel = lv / 4; popup('スピードアップ！', 'small'); }
+        }
         updatePlayer(dt);
       } else if (state === 'clear' || state === 'over') {
         updatePlayer(0);
@@ -569,14 +675,16 @@
       const moving = p.mode === 'move' || p.mode === 'bump' || p.mode === 'exit' || p.mode === 'warpIn';
       const fr = moving ? 1 + (((p.walk * 6.5) | 0) % 4) : 0;
       const bob = moving ? Math.sin(p.walk * Math.PI * 4) * 2.2 : 0;
-      const sprites = [dogSprite(p.x, p.y, p.ang, fr)];
+      const sprites = [Object.assign(dogSprite(p.x, p.y, p.ang, fr), { self: true })];
       const B = Sprites.BONE;
       for (const b of bones) {
         if (b.taken) continue;
         const f = ((clock * B.fps + b.x * 3) | 0) % B.frames;
         sprites.push({ img: B.sheet, sx: f * B.fw, sy: 0, fw: B.fw, fh: B.fh, x: b.x, y: b.y, z: 0.05 + 0.035 * Math.sin(clock * 2.6 + b.x), w: B.w, h: B.h });
       }
-      renderer.render({ px: p.x, py: p.y, ang: p.ang, bob, sprites });
+      // 背後カメラ：犬の少し後ろ・少し上から（自分の背中と、合わせ鏡にずらりと並ぶ自分が見える）
+      const back = camBehind ? CAM_BACK : 0;
+      renderer.render({ px: p.x - Math.cos(p.ang) * back, py: p.y - Math.sin(p.ang) * back, ang: p.ang, bob, sprites, camZ: camBehind ? CAM_Z_BEHIND : undefined });
       if (state !== 'paused') { updateHud(false); drawMinimap(); }
     }
 

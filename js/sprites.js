@@ -15,7 +15,10 @@
   // 横: 向き 0°(正面)〜180°(背面) を 22.5° 刻みで 9 列 / 縦: 0=立ち, 1〜4=速歩き
   const dogSheet = new Image();
   dogSheet.src = 'assets/dog.png';
-  const DOG = { sheet: dogSheet, fw: 144, fh: 120, cols: 9, step: 22.5, w: 1.24 * 0.44, h: 1.03 * 0.44, z: -0.02 * 0.44 };
+  // 背後視点で手前に映る自分用の、真後ろ姿（高解像度・5 コマ）
+  const dogBack = new Image();
+  dogBack.src = 'assets/dog_back.png';
+  const DOG = { back: dogBack, bfw: 288, bfh: 240, sheet: dogSheet, fw: 144, fh: 120, cols: 9, step: 22.5, w: 1.24 * 0.44, h: 1.03 * 0.44, z: -0.02 * 0.44 };
 
   // ほねスプライトシート（tools/render_bone.py で事前レンダリング）。横 12 コマでくるくる回る
   const boneSheet = new Image();

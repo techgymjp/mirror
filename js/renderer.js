@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const CAMZ = 0.34;        // 犬の目の高さ（壁の高さ = 1）
+  const CAMZ_EYE = 0.34;    // 犬の目の高さ（壁の高さ = 1）
   const FR = 0.035;          // 鏡のフチ（枠）の幅
   const FOG_LEVELS = 48;
   const MAX_SEG = 64;
@@ -63,16 +63,17 @@
     const cfg = this.cfg;
     const fogD = cfg.fog, maxB = cfg.maxBounce || 14, tint = cfg.tint;
     const hz = H / 2 + (v.bob || 0);
+    const CAMZ = v.camZ || CAMZ_EYE;
     const sAX = this.sAX, sAY = this.sAY, sBX = this.sBX, sBY = this.sBY, sD0 = this.sD0, sD1 = this.sD1, mF = this.mF, mS = this.mS;
     const sprites = v.sprites || [];
     const hits = this.hits;
 
     ctx.globalAlpha = 1;
     let g = ctx.createLinearGradient(0, 0, 0, hz);
-    g.addColorStop(0, '#1d1736'); g.addColorStop(1, FOG_CSS);
+    g.addColorStop(0, cfg.sky || '#1d1736'); g.addColorStop(1, FOG_CSS);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, Math.ceil(hz));
     g = ctx.createLinearGradient(0, hz, 0, H);
-    g.addColorStop(0, FOG_CSS); g.addColorStop(0.35, '#1e1828'); g.addColorStop(1, '#5a4560');
+    g.addColorStop(0, FOG_CSS); g.addColorStop(0.35, '#16121e'); g.addColorStop(1, cfg.floor || '#5a4560');
     ctx.fillStyle = g; ctx.fillRect(0, Math.floor(hz), W, H - Math.floor(hz));
 
     const px = v.px, py = v.py;
@@ -166,6 +167,10 @@
               const col = Math.min(D.cols - 1, Math.round(Math.abs(psi) / D.step));
               if (psi < 0) u = 1 - u;
               sx = col * D.fw; sy = s.frame * D.fh; fw = D.fw; fh = D.fh;
+              if (k === 0 && s.self && Math.abs(psi) > 160 && D.back.complete && D.back.naturalWidth) {
+                // 手前の自分の背中は高解像度版で
+                img = D.back; sx = s.frame * D.bfw; sy = 0; fw = D.bfw; fh = D.bfh;
+              }
             } else if (s.fw) {
               if (!img.complete || !img.naturalWidth) continue;
               sx = s.sx; sy = s.sy; fw = s.fw; fh = s.fh;

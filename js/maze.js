@@ -1,4 +1,4 @@
-/* 迷路生成（シード付き） */
+/* 迷路生成（シード付き）と、手作りコースの読み込み */
 (function () {
   'use strict';
 
@@ -30,38 +30,140 @@
     return dist;
   }
 
+  function openDirs(map, x, y) {
+    return [0, 1, 2, 3].filter(d => map[y + DIRS[d][1]][x + DIRS[d][0]] === 0);
+  }
+
+  function shuffle(a, rnd) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   /**
+   * 仕上げ：出口・スタートの向き・ほね・ワープ・距離を決める（自動生成・手作り共通）
    * map: 0 = 床, 1 = 鏡の壁, 2 = 本物の出口, 3 = ダミー出口（ワープゾーン。行き止まりにはすべて置く）
    */
-  function generate(cells, loops, bonesCount, seed) {
-    const rnd = mulberry32(seed);
-    const W = cells * 2 + 1, H = W;
-    const map = Array.from({ length: H }, () => new Array(W).fill(1));
-    const seen = Array.from({ length: cells }, () => new Array(cells).fill(false));
+  function finalize(map, start, exit, bonesCount, rnd, presetBones) {
+    const H = map.length, W = map[0].length;
+    const dist = bfs(map, W, H, start.x, start.y);
 
-    // 穴掘り法（再帰バックトラック）
-    const stack = [[0, 0]];
+    // 出口：指定がなければ、外周に面した床のうちスタートから一番遠いところ
+    if (!exit) {
+      let best = null;
+      for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+          if (map[y][x] !== 0 || dist[y][x] < 0) continue;
+          if (x === start.x && y === start.y) continue;
+          const opts = [];
+          if (x === W - 2) opts.push([W - 1, y]);
+          if (y === H - 2) opts.push([x, H - 1]);
+          if (x === 1) opts.push([0, y]);
+          if (y === 1) opts.push([x, 0]);
+          for (const o of opts) {
+            if (map[o[1]][o[0]] !== 1) continue;
+            if (!best || dist[y][x] > best.d) best = { d: dist[y][x], cx: x, cy: y, x: o[0], y: o[1] };
+          }
+        }
+      }
+      exit = best;
+    } else {
+      // 扉の隣の床が出口マス
+      for (const [dx, dy] of DIRS) {
+        const nx = exit.x + dx, ny = exit.y + dy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H && map[ny][nx] === 0) { exit.cx = nx; exit.cy = ny; }
+      }
+    }
+    map[exit.y][exit.x] = 2;
+
+    // スタートの向き：開いている方向（指定があればそれ）
+    if (start.dir === undefined) start.dir = openDirs(map, start.x, start.y)[0] || 0;
+
+    // 行き止まり
+    const deadEnds = [];
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        if (map[y][x] !== 0) continue;
+        if ((x === start.x && y === start.y) || (x === exit.cx && y === exit.cy)) continue;
+        if (openDirs(map, x, y).length === 1) deadEnds.push({ x, y });
+      }
+    }
+
+    // ほね：行き止まり優先、足りなければ通路のどこか
+    let bones = presetBones ? presetBones.slice() : [];
+    if (!presetBones) {
+      bones = shuffle(deadEnds.slice(), rnd).slice(0, bonesCount);
+      const floors = [];
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (map[y][x] === 0 && dist[y][x] > 2) floors.push({ x, y });
+      shuffle(floors, rnd);
+      for (const f of floors) {
+        if (bones.length >= bonesCount) break;
+        if (!bones.some(b => b.x === f.x && b.y === f.y)) bones.push(f);
+      }
+    }
+
+    // ダミー出口（ワープ）：すべての行き止まりの突き当たりを扉にする（スタートの背後も。手作りの W もそのまま）
+    const warps = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (map[y][x] === 3) warps.push({ x, y });
+    const warpSpots = deadEnds.slice();
+    if (openDirs(map, start.x, start.y).length === 1) warpSpots.push({ x: start.x, y: start.y });
+    for (const de of warpSpots) {
+      const od = openDirs(map, de.x, de.y)[0];
+      const wx = de.x - DIRS[od][0], wy = de.y - DIRS[od][1];
+      if (map[wy][wx] === 1) { map[wy][wx] = 3; warps.push({ x: wx, y: wy, cx: de.x, cy: de.y }); }
+    }
+
+    const exitDist = bfs(map, W, H, exit.cx, exit.cy);
+    return {
+      map, W, H, start, bones, warps, exitDist,
+      exit: { x: exit.x, y: exit.y, cx: exit.cx, cy: exit.cy },
+      pathLen: dist[exit.cy][exit.cx] + 1,
+    };
+  }
+
+  /**
+   * 自動生成の迷路
+   * o: { w, h（部屋の数）, loops, bones, seed,
+   *      straight（0〜1：まっすぐ進みやすさ）, twist（0〜1：曲がりやすさ）, rooms（広間の数） }
+   */
+  function generate(o) {
+    if (typeof o === 'number') o = { w: arguments[0], h: arguments[0], loops: arguments[1], bones: arguments[2], seed: arguments[3] };
+    const rnd = mulberry32(o.seed);
+    const cw = o.w, ch = o.h || o.w;
+    const W = cw * 2 + 1, H = ch * 2 + 1;
+    const map = Array.from({ length: H }, () => new Array(W).fill(1));
+    const seen = Array.from({ length: ch }, () => new Array(cw).fill(false));
+
+    // 穴掘り法（再帰バックトラック）。直前の向きを覚えて、まっすぐ／くねくねの癖をつける
+    const stack = [[0, 0, -1]];
     seen[0][0] = true;
     map[1][1] = 0;
     while (stack.length) {
-      const [cx, cy] = stack[stack.length - 1];
+      const [cx, cy, last] = stack[stack.length - 1];
       const nb = [];
-      for (const [dx, dy] of DIRS) {
-        const nx = cx + dx, ny = cy + dy;
-        if (nx >= 0 && ny >= 0 && nx < cells && ny < cells && !seen[ny][nx]) nb.push([dx, dy]);
+      for (let d = 0; d < 4; d++) {
+        const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+        if (nx >= 0 && ny >= 0 && nx < cw && ny < ch && !seen[ny][nx]) nb.push(d);
       }
       if (!nb.length) { stack.pop(); continue; }
-      const [dx, dy] = nb[Math.floor(rnd() * nb.length)];
-      const nx = cx + dx, ny = cy + dy;
-      map[cy * 2 + 1 + dy][cx * 2 + 1 + dx] = 0;
+      let d = nb[Math.floor(rnd() * nb.length)];
+      if (o.straight && nb.includes(last) && rnd() < o.straight) d = last;
+      if (o.twist && nb.length > 1 && d === last && rnd() < o.twist) {
+        const others = nb.filter(v => v !== last);
+        d = others[Math.floor(rnd() * others.length)];
+      }
+      const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+      map[cy * 2 + 1 + DIRS[d][1]][cx * 2 + 1 + DIRS[d][0]] = 0;
       map[ny * 2 + 1][nx * 2 + 1] = 0;
       seen[ny][nx] = true;
-      stack.push([nx, ny]);
+      stack.push([nx, ny, d]);
     }
 
-    // ループを作って迷いやすくする
+    // ループ（抜け道）
     let removed = 0;
-    for (let tries = 0; removed < loops && tries < 4000; tries++) {
+    for (let tries = 0; removed < (o.loops || 0) && tries < 4000; tries++) {
       const x = 1 + Math.floor(rnd() * (W - 2));
       const y = 1 + Math.floor(rnd() * (H - 2));
       if (map[y][x] !== 1) continue;
@@ -70,70 +172,42 @@
       if (horiz || vert) { map[y][x] = 0; removed++; }
     }
 
-    const start = { x: 1, y: 1, dir: 0 };
-    const dist = bfs(map, W, H, start.x, start.y);
-
-    // 出口：外周に面したマスのうち、スタートから一番遠いところ
-    let best = null;
-    for (let y = 1; y < H - 1; y += 2) {
-      for (let x = 1; x < W - 1; x += 2) {
-        const opts = [];
-        if (x === W - 2) opts.push([W - 1, y]);
-        if (y === H - 2) opts.push([x, H - 1]);
-        if (x === 1 && !(y === 1)) opts.push([0, y]);
-        if (y === 1 && !(x === 1)) opts.push([x, 0]);
-        for (const o of opts) {
-          if (!best || dist[y][x] > best.d) best = { d: dist[y][x], cx: x, cy: y, ex: o[0], ey: o[1] };
-        }
-      }
-    }
-    map[best.ey][best.ex] = 2;
-
-    // スタートの向き：開いている方向
-    for (let d = 0; d < 4; d++) {
-      const [dx, dy] = DIRS[d];
-      if (map[start.y + dy][start.x + dx] === 0) { start.dir = d; break; }
+    // 広間：2×2 部屋ぶんの壁を取り払う（スタートのそばは避ける）
+    for (let r = 0, tries = 0; r < (o.rooms || 0) && tries < 200; tries++) {
+      const rw = 2, rh = 2;
+      const rx = Math.floor(rnd() * (cw - rw + 1)), ry = Math.floor(rnd() * (ch - rh + 1));
+      if (rx < 2 && ry < 2) continue;
+      for (let y = ry * 2 + 1; y <= (ry + rh - 1) * 2 + 1; y++) for (let x = rx * 2 + 1; x <= (rx + rw - 1) * 2 + 1; x++) map[y][x] = 0;
+      r++;
     }
 
-    // 骨：行き止まりに置く
-    const deadEnds = [];
-    for (let y = 1; y < H - 1; y += 2) {
-      for (let x = 1; x < W - 1; x += 2) {
-        if ((x === start.x && y === start.y) || (x === best.cx && y === best.cy)) continue;
-        let walls = 0;
-        for (const [dx, dy] of DIRS) if (map[y + dy][x + dx] !== 0) walls++;
-        if (walls >= 3) deadEnds.push({ x, y });
-      }
-    }
-    for (let i = deadEnds.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [deadEnds[i], deadEnds[j]] = [deadEnds[j], deadEnds[i]];
-    }
-    const bones = deadEnds.slice(0, bonesCount);
-    // 行き止まりが足りなければ通路にも置く
-    for (let tries = 0; bones.length < bonesCount && tries < 500; tries++) {
-      const x = 1 + 2 * Math.floor(rnd() * cells), y = 1 + 2 * Math.floor(rnd() * cells);
-      if ((x === start.x && y === start.y) || bones.some(b => b.x === x && b.y === y)) continue;
-      bones.push({ x, y });
-    }
-
-    // ダミー出口（ワープ）：すべての行き止まりの突き当たりを扉にする
-    // （本物の出口のある行き止まりだけは除く）
-    const warps = [];
-    for (let y = 1; y < H - 1; y += 2) {
-      for (let x = 1; x < W - 1; x += 2) {
-        if (x === best.cx && y === best.cy) continue;
-        const open = DIRS.filter(([dx, dy]) => map[y + dy][x + dx] === 0);
-        if (open.length !== 1) continue;
-        const [ox, oy] = open[0];
-        const wx = x - ox, wy = y - oy;
-        if (map[wy][wx] === 1) { map[wy][wx] = 3; warps.push({ x: wx, y: wy, cx: x, cy: y }); }
-      }
-    }
-
-    const exitDist = bfs(map, W, H, best.cx, best.cy);
-    return { map, W, H, start, exit: { x: best.ex, y: best.ey, cx: best.cx, cy: best.cy }, bones, warps, exitDist, pathLen: best.d + 1 };
+    return finalize(map, { x: 1, y: 1 }, null, o.bones || 0, rnd);
   }
 
-  window.Maze = { generate, DIRS, mulberry32 };
+  /**
+   * 手作りコース
+   *   # 鏡の壁  . 床  S スタート  E 本物の出口（外周の壁）  W ワープ扉  B ほね
+   */
+  function fromAscii(rows, seed) {
+    const rnd = mulberry32(seed || 1);
+    const H = rows.length, W = rows[0].length;
+    const map = [], bones = [];
+    let start = null, exit = null;
+    for (let y = 0; y < H; y++) {
+      map.push([]);
+      for (let x = 0; x < W; x++) {
+        const ch = rows[y][x];
+        let v = 1;
+        if (ch === '.' || ch === 'S' || ch === 'B') v = 0;
+        if (ch === 'W') v = 3;
+        if (ch === 'S') start = { x, y };
+        if (ch === 'E') exit = { x, y };
+        if (ch === 'B') bones.push({ x, y });
+        map[y].push(v);
+      }
+    }
+    return finalize(map, start, exit, bones.length, rnd, bones);
+  }
+
+  window.Maze = { generate, fromAscii, DIRS, mulberry32 };
 })();

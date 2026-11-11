@@ -326,9 +326,21 @@ def main():
     print('saved', os.path.abspath(OUT))
 
 
+def main_back():
+    """背後視点で手前に大きく映る自分用：真後ろ（180°）だけを 2 倍の解像度で"""
+    global W, H
+    W, H = W * 2, H * 2
+    frames = [render(180.0, ph) for ph in POSES]
+    out = os.path.join(os.path.dirname(OUT), 'dog_back.png')
+    Image.fromarray(np.concatenate(frames, 1), 'RGBA').save(out, optimize=True)
+    print('saved', os.path.abspath(out))
+
+
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == 'preview':
+    if len(sys.argv) > 1 and sys.argv[1] == 'back':
+        main_back()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'preview':
         ims = [render(a, None) for a in (0, 45, 90, 135, 180)]
         Image.fromarray(np.concatenate(ims, 1), 'RGBA').save(sys.argv[2])
     else:

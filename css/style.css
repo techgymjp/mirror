@@ -14,14 +14,14 @@ body { font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Hiragino 
 button { font: inherit; color: inherit; }
 
 #view { position: fixed; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
-#screen { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#screen { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transform: scaleX(var(--flip, 1)); }
 #view.shake #screen { animation: shake 0.35s; }
 @keyframes shake {
-  0%, 100% { transform: translate(0, 0); }
-  15% { transform: translate(-10px, 4px) scale(1.03); }
-  35% { transform: translate(8px, -3px) scale(1.02); }
-  55% { transform: translate(-5px, 2px); }
-  75% { transform: translate(3px, -1px); }
+  0%, 100% { transform: scaleX(var(--flip, 1)) translate(0, 0); }
+  15% { transform: scaleX(var(--flip, 1)) translate(-10px, 4px) scale(1.03); }
+  35% { transform: scaleX(var(--flip, 1)) translate(8px, -3px) scale(1.02); }
+  55% { transform: scaleX(var(--flip, 1)) translate(-5px, 2px); }
+  75% { transform: scaleX(var(--flip, 1)) translate(3px, -1px); }
 }
 #flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: screen; }
 
@@ -84,7 +84,8 @@ h2 { margin: 0 0 14px; font-size: 24px; }
 .stage-btn:active:not(:disabled) { transform: scale(.98); }
 .stage-btn:disabled { opacity: .45; cursor: default; }
 .stage-btn .no { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,181,71,.18); color: var(--accent); font-weight: 800; }
-.stage-btn .nm { flex: 1; font-weight: 800; }
+.stage-btn .nm { flex: 1; font-weight: 800; min-width: 0; }
+.stage-btn .nm small { display: block; font-weight: 500; font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
 .stage-btn .st { color: var(--accent); letter-spacing: 2px; font-size: 14px; }
 .stage-btn.random .no { background: rgba(176,97,255,.2); color: #d4b0ff; }
 
@@ -120,3 +121,7 @@ kbd { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 5px; 
 .bone-count.pulse { animation: bonePulse .6s; }
 @keyframes bonePulse { 0% { transform: scale(1); } 30% { transform: scale(1.5); color: var(--accent); } 100% { transform: scale(1); } }
 .popup.save { color: #ffe9b8; font-size: 40px; top: 30%; }
+@media (min-width: 760px) {
+  .panel.title-panel { max-width: 720px; }
+  .stage-list { grid-template-columns: 1fr 1fr; }
+}

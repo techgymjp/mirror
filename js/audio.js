@@ -34,7 +34,7 @@
       gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       let node = o;
       if (opts.lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = opts.lp; o.connect(f); node = f; }
-      node.connect(gn); gn.connect(out);
+      node.connect(gn); panTo(gn, opts.pan).connect(out);
       if (opts.rev && rev) { const sg = ac.createGain(); sg.gain.value = opts.rev; gn.connect(sg); sg.connect(rev); }
       o.start(t); o.stop(t + dur + 0.05);
     }
@@ -50,6 +50,30 @@
       src.connect(f); f.connect(gn); gn.connect(out);
       src.start(t);
     }
+    // 左右の定位
+    function panTo(node, pan) {
+      if (!pan || !ac.createStereoPanner) return node;
+      const pn = ac.createStereoPanner(); pn.pan.value = pan;
+      node.connect(pn);
+      return pn;
+    }
+    // 「シュッ」という風切り音（ノイズの帯域を動かす）
+    function whoosh(dur, vol, f0, f1, delay, pan) {
+      const t = t0 + (delay || 0);
+      const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.2;
+      f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const gn = ac.createGain();
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(vol, t + dur * 0.35);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(f); f.connect(gn); panTo(gn, pan).connect(out);
+      src.start(t);
+    }
     // ベルのような澄んだ音（倍音を少し重ねたサイン波）
     function bell(freq, delay, vol, dur) {
       dur = dur || 1.6;
@@ -57,13 +81,34 @@
       tone(freq * 2, dur * 0.6, 'sine', vol * 0.25, null, delay, { attack: 0.005, rev: 0.6 });
       tone(freq * 3, dur * 0.3, 'sine', vol * 0.08, null, delay, { attack: 0.005, rev: 0.6 });
     }
-    return { tone, noise, bell };
+    return { tone, noise, bell, whoosh };
   }
 
   // 効果音のレシピ（len = 残響込みの長さ・秒）
   const SFX = {
     step: { len: 0.1, fn: k => k.noise(0.025, 0.05, 2400) },
     turn: { len: 0.15, fn: k => k.tone(880, 0.06, 'sine', 0.07, 1180) },
+    // フリック：左は下がる音で左から、右は上がる音で右から
+    flickL: {
+      len: 0.3, fn: k => {
+        k.whoosh(0.16, 0.55, 3200, 900, 0, -0.55);
+        k.tone(990, 0.12, 'sine', 0.16, 700, 0.02, { attack: 0.004, pan: -0.55 });
+      },
+    },
+    flickR: {
+      len: 0.3, fn: k => {
+        k.whoosh(0.16, 0.55, 900, 3200, 0, 0.55);
+        k.tone(700, 0.12, 'sine', 0.16, 990, 0.02, { attack: 0.004, pan: 0.55 });
+      },
+    },
+    // 2回続けて後ろを向くとき
+    flickU: {
+      len: 0.45, fn: k => {
+        k.whoosh(0.22, 0.5, 1200, 3600, 0);
+        k.tone(880, 0.1, 'sine', 0.15, null, 0.02, { attack: 0.004 });
+        k.tone(1320, 0.16, 'sine', 0.15, null, 0.11, { attack: 0.004 });
+      },
+    },
     bump: {
       len: 2.4, fn: k => {
         k.tone(150, 0.4, 'sine', 0.9, 50);
@@ -101,6 +146,14 @@
         k.bell(mtof(79), 0, 0.12, 1.0);
         k.bell(mtof(86), 0.12, 0.12, 1.4);
         k.bell(mtof(91), 0.24, 0.06, 1.6);
+      },
+    },
+    // 遠くの雷（低いゴロゴロ）
+    thunder: {
+      len: 2.2, fn: k => {
+        k.noise(1.6, 0.5, 120, 0.05, 'lowpass');
+        k.noise(0.9, 0.35, 220, 0.25, 'lowpass');
+        k.tone(55, 1.4, 'sine', 0.25, 38, 0.05);
       },
     },
     // ゲームオーバー：ゆっくり下がっていくベル
@@ -304,6 +357,7 @@
     unlock() { ensure(); applyMusicGain(); },
     step() { play('step'); },
     turn() { play('turn'); },
+    flick(dir) { play(dir < 0 ? 'flickL' : dir > 0 ? 'flickR' : 'flickU'); },
     bump() { play('bump'); },
     whine() { play('whine'); },
     bone() { play('bone'); },
@@ -312,6 +366,7 @@
     clear() { play('clear'); },
     gameover() { play('gameover'); },
     saved() { play('saved'); },
+    thunder() { play('thunder'); },
     music(m) { mode = m; if (ctx) applyMusicGain(); },
     setMuted(m) {
       muted = m;
