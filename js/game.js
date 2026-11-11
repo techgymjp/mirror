@@ -8,12 +8,14 @@
   const TURN_DUR = 0.14, BUMP_DUR = 0.42, STUN = 0.35, WARP_DUR = 0.9;
   const SAVE_KEY = 'inu-kagami-v1';
 
+  // 迷路の形（seed）は、出口までの距離・ワープ扉・曲がる回数・分かれ道がステージごとに増えるように選んである
+  //   1: 23マス/ワープ1/曲がり5/分岐1 → 2: 31/2/8/3 → 3: 39/3/11/5 → 4: 47/5/14/7 → 5: 57/7/18/9
   const STAGES = [
-    { name: 'はじめての鏡', cells: 4, loops: 0, bones: 2, tint: 0.26, fog: 11, speed: 1.8, compass: true, warpHint: 0.35, seed: 1203 },
-    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, tint: 0.18, fog: 12, speed: 2.1, compass: true, warpHint: 0.22, seed: 2207 },
-    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, tint: 0.13, fog: 13, speed: 2.4, compass: true, warpHint: 0.1, seed: 3301 },
-    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, tint: 0.09, fog: 14, speed: 2.7, compass: false, warpHint: 0, seed: 4409 },
-    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, tint: 0.06, fog: 15, speed: 3.0, compass: false, warpHint: 0, seed: 5501 },
+    { name: 'はじめての鏡', cells: 4, loops: 1, bones: 2, tint: 0.26, fog: 11, speed: 1.8, compass: true, warpHint: 0.35, seed: 509 },
+    { name: '映りこむ廊下', cells: 5, loops: 2, bones: 3, tint: 0.18, fog: 12, speed: 2.1, compass: true, warpHint: 0.22, seed: 84 },
+    { name: 'あわせ鏡の間', cells: 6, loops: 4, bones: 3, tint: 0.13, fog: 13, speed: 2.4, compass: true, warpHint: 0.1, seed: 711 },
+    { name: 'ゆがむ方角', cells: 7, loops: 6, bones: 4, tint: 0.09, fog: 14, speed: 2.7, compass: false, warpHint: 0, seed: 764 },
+    { name: '鏡の大迷宮', cells: 8, loops: 9, bones: 5, tint: 0.06, fog: 15, speed: 3.0, compass: false, warpHint: 0, seed: 4251 },
   ];
   function randomCfg() {
     const seed = (Math.random() * 1e9) | 0;
