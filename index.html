@@ -20,7 +20,6 @@
       <div id="stageName" class="stage-name"></div>
       <div class="stats">
         <span title="タイム">⏱ <b id="hudTime">0:00.0</b></span>
-        <span title="鏡にぶつかった回数">💥 <b id="hudBump">0</b></span>
         <span title="ワープした回数">🌀 <b id="hudWarp">0</b></span>
         <span title="ほね">🦴 <b id="hudBone">0/0</b></span>
       </div>
@@ -44,7 +43,7 @@
     <div class="panel">
       <p class="kicker">🐕 MIRROR MAZE</p>
       <h1>犬も歩けば<br><span>鏡に当たる</span></h1>
-      <p class="lead">壁はぜんぶ鏡。見えている道は、本物？ 映りこみ？<br>走りつづける犬をフリックで導いて、たった一つの出口へ！</p>
+      <p class="lead">壁はぜんぶ鏡。見えている道は、本物？ 映りこみ？<br>走りつづける犬をフリックで導いて、たった一つの出口へ！<br>鏡に当たったら一発アウト！</p>
       <div id="stageList" class="stage-list"></div>
       <div class="row-btns">
         <button id="btnHowto" class="btn ghost">遊び方</button>
@@ -61,11 +60,11 @@
         <li><b>あなたは犬。</b>迷路の中を自動で前へ走りつづけます。</li>
         <li><b>フリック ← →</b> で次のマスで曲がる。<b>↓</b> でUターン。<b>タップ</b>でおすわり（止まる／走る）。</li>
         <li>PC は <kbd>←</kbd><kbd>→</kbd><kbd>↓</kbd>、<kbd>Space</kbd> でおすわり、<kbd>K</kbd> でくんくん、<kbd>M</kbd> で地図。</li>
-        <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れると「ゴン！」</li>
+        <li><b>壁はすべて鏡。</b>まっすぐ続く道に見えても、それは映りこみかも。曲がり忘れて鏡に当たると「ゴン！」で<b>即ゲームオーバー</b>。</li>
         <li>鏡には<b>自分の姿</b>も映ります。向こうから犬が来たら…それは自分です。</li>
         <li><b>本物の出口は一つだけ。</b>ほかの「EXIT」はワープゾーン。どこかへ飛ばされます。</li>
         <li>迷ったら <b>👃 くんくん</b> で本物の出口の方向をかぎ分けよう（1ステージ3回）。</li>
-        <li>ゴンとワープが少ないほど ★ が増えます。ほねも集めてね。</li>
+        <li>ワープが少ないほど ★ が増えます。ほねも集めてね。</li>
       </ul>
       <button id="btnHowtoBack" class="btn">もどる</button>
     </div>
@@ -77,6 +76,17 @@
       <button id="btnResume" class="btn">つづける</button>
       <button id="btnRetry" class="btn ghost">やり直す</button>
       <button id="btnQuit" class="btn ghost">タイトルへ</button>
+    </div>
+  </section>
+
+  <section id="over" class="overlay" hidden>
+    <div class="panel small">
+      <p id="overKicker" class="kicker">💥 ゴン！</p>
+      <h2>ゲームオーバー</h2>
+      <p class="over-msg">鏡にぶつかってしまった…<br>次は曲がり角を見きわめよう！</p>
+      <div id="overStats" class="clear-stats"></div>
+      <button id="btnOverRetry" class="btn">もう一度</button>
+      <button id="btnOverTitle" class="btn ghost">タイトルへ</button>
     </div>
   </section>
 

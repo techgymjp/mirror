@@ -223,6 +223,11 @@
       [76, 79, 84].forEach(m => bell(mtof(m), 0.7, 0.1, 2.6));
       bell(mtof(96), 0.95, 0.05, 2.0);
     },
+    // ゲームオーバー：ゆっくり下がっていくベル
+    gameover() {
+      [76, 72, 69, 64].forEach((m, i) => bell(mtof(m), 0.35 + i * 0.22, 0.12, 1.6));
+      bell(mtof(57), 1.3, 0.08, 2.6);
+    },
     music(m) { mode = m; if (ctx) applyMusicGain(); },
     setMuted(m) {
       muted = m;

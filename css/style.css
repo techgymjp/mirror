@@ -125,3 +125,5 @@ kbd { display: inline-block; padding: 0 6px; margin: 0 1px; border-radius: 5px; 
 }
 
 .btn-music.off { opacity: .4; text-decoration: line-through; }
+.over-msg { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0 0 12px; }
+#over h2 { color: #ffd0d0; }
