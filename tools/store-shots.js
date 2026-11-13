@@ -30,6 +30,8 @@ async function open(browser, lang, viewport) {
   const pg = await ctx.newPage();
   await pg.goto(URL);
   await pg.waitForFunction(() => window.__game && document.fonts.status === 'loaded');
+  // アプリの画面として撮るので、Web 版だけの Google Play へのリンクは消す
+  await pg.evaluate(() => document.querySelectorAll('.store-link').forEach(e => e.remove()));
   await pg.waitForTimeout(900);
   return { ctx, pg };
 }

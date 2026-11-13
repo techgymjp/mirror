@@ -75,7 +75,7 @@
 
 ## 起動
 
-Web 版はビルド不要。`index.html` をブラウザで開くだけで遊べます（ローカルファイルでも動きます）。GitHub Pages でもそのまま公開しています。
+Web 版のタイトル画面には、Google Play の Android アプリ版へのリンクがあります（アプリ版のビルドでは取り除く）。Web 版はビルド不要。`index.html` をブラウザで開くだけで遊べます（ローカルファイルでも動きます）。GitHub Pages でもそのまま公開しています。
 
 ```bash
 python3 -m http.server 8000

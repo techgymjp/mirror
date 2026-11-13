@@ -6,6 +6,9 @@ window.I18N = (() => {
       'title.h1': '犬も歩けば<br><span>鏡に当たる</span>',
       'title.lead': '壁はぜんぶ鏡。見えている道は、本物？ 映りこみ？<br>走りつづける犬をフリックで導いて、たった一つの出口へ！<br>鏡に当たったら一発アウト！',
       'btn.howto': '遊び方',
+      // web-only:start
+      'title.getAndroid': '▶ Android アプリ版（Google Play）',
+      // web-only:end
       'legal.privacy': 'プライバシーポリシー',
       'url.privacy': 'https://techgym.jp/privacy-policy/',
       'legal.adSettings': '広告の設定',
@@ -82,6 +85,9 @@ window.I18N = (() => {
       'title.h1': 'Mirror<br><span>Maze Dog</span>',
       'title.lead': 'Every wall is a mirror. Is that path real, or a reflection? <br>Flick to guide your running Shiba to the one true exit! <br>Bump into a mirror and you\'re out!',
       'btn.howto': 'How to play',
+      // web-only:start
+      'title.getAndroid': '▶ Get the Android app (Google Play)',
+      // web-only:end
       'legal.privacy': 'Privacy Policy',
       'url.privacy': 'https://techgym.jp/privacy-policy-en/',
       'legal.adSettings': 'Ad settings',
