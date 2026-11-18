@@ -36,4 +36,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 縦画面固定（sensorPortrait）だが、縦画面は端末の必須条件ではない（Google Play で対応端末を狭めないため） -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 </manifest>
